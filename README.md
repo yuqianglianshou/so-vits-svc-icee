@@ -74,7 +74,101 @@ The singing voice conversion model uses SoftVC content encoder to extract speech
 
 ## 💬 Python Version
 
-Based on our testing, we have determined that the project runs stable on `Python 3.8.9`.
+Based on our current validation, the stable baseline for this customized repository is `Python 3.11.x`.
+
+## 🧪 Environment Convention
+
+This project now standardizes on Python's built-in `venv`:
+
+- the virtual environment should be created at the project root as `.venv311`
+- Conda / Anaconda are no longer the default environment workflow
+- Windows batch launchers are expected to use `.venv311\\Scripts\\python.exe`
+
+Standard initialization:
+
+```shell
+python -m venv .venv311
+```
+
+## 🚀 Current Recommended Workflow
+
+If you are using this repository in its current customized form, use the app-based workflow first instead of starting from the low-level scripts.
+
+### 1. Create the virtual environment and install dependencies
+
+```shell
+python -m venv .venv311
+```
+
+```shell
+# Windows
+.venv311\Scripts\activate
+
+# macOS / Linux
+source .venv311/bin/activate
+
+pip install --upgrade pip setuptools wheel
+# Windows + NVIDIA GPU (recommended)
+pip install -U torch torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip install -r requirements.txt
+```
+
+### 2. Train models
+
+Recommended entrypoint:
+
+```shell
+python app_train.py
+```
+
+On Windows you can also double-click:
+
+- `启动训练界面.bat`
+
+The training page now starts with dependency preparation:
+
+- checking training dependencies and base models
+- importing missing files into standard locations
+- preparing training dependencies and base models under `pretrain/encoders/`, `pretrain/vocoders/`, and `pretrain/base_models/44k/`
+
+The current training console supports:
+
+- importing `dataset_raw/<speaker_dir>/*.wav`
+- suggesting safe directory names
+- deleting the current speaker directory
+- automatically binding the processed output dir to `dataset/44k/<speaker_dir>`
+- defaulting the model output name to the current speaker directory name
+- one-click execution for resample, config generation, feature extraction, and main model training
+- training checks, stage judgement, task status, logs, and warning/error hints
+
+The current recommended workflow is **single-speaker training**:
+
+- one speaker directory per training run
+- one speaker should normally use one dedicated model output directory under `logs/<model_name>/`
+- when you want to train a second speaker, switch to that speaker directory and use a new model output name instead of mixing speakers into the same model
+
+### 3. Run inference
+
+Recommended entrypoint:
+
+```shell
+python app_infer.py
+```
+
+The current inference page supports:
+
+- loading the main model, quality-enhancement model, and timbre-enhancement file
+- switching quality modes
+- exporting a runtime summary
+- an offline high-quality singing-conversion workflow
+
+### 4. When to use the legacy sections below
+
+The remaining `dataset / preprocessing / training / inference` sections are still useful if you want to:
+
+- run low-level scripts directly
+- understand the underlying training pipeline
+- troubleshoot on a Windows + GPU machine via CLI
 
 ## 📥 Pre-trained Model Files
 
@@ -84,20 +178,16 @@ Based on our testing, we have determined that the project runs stable on `Python
 
 ##### **1. If using contentvec as speech encoder(recommended)**
 
-`vec768l12` and `vec256l9` require the encoder
+`vec768l12` uses the current Transformers / HF ContentVec route.
 
-- ContentVec: [checkpoint_best_legacy_500.pt](https://ibm.box.com/s/z1wgl1stco8ffooyatzdwsqn2psd9lrr)
-  - Place it under the `pretrain` directory
+- ContentVec HF directory: `pretrain/encoders/contentvec_hf/`
+  - Required files:
+    - `config.json`
+    - `model.safetensors`
+  - Locked source currently used by this project:
+    - `lengyue233/content-vec-best`
 
-Or download the following ContentVec, which is only 199MB in size but has the same effect:
-- ContentVec: [hubert_base.pt](https://huggingface.co/lj1995/VoiceConversionWebUI/resolve/main/hubert_base.pt)
-  - Change the file name to `checkpoint_best_legacy_500.pt` and place it in the `pretrain` directory
-
-```shell
-# contentvec
-wget -P pretrain/ https://huggingface.co/lj1995/VoiceConversionWebUI/resolve/main/hubert_base.pt -O checkpoint_best_legacy_500.pt
-# Alternatively, you can manually download and place it in the hubert directory
-```
+If the directory does not exist locally, the project can fall back to downloading from the locked Hugging Face source. For long-term stability, keeping the local directory is still recommended.
 
 ##### **2. If hubertsoft is used as the speech encoder**
 - soft vc hubert: [hubert-soft-0d54a1f4.pt](https://github.com/bshall/hubert/releases/download/v0.1/hubert-soft-0d54a1f4.pt)
@@ -141,15 +231,18 @@ wget -P pretrain/ https://huggingface.co/lj1995/VoiceConversionWebUI/resolve/mai
 
 #### **Optional(Strongly recommend)**
 
-- Pre-trained model files: `G_0.pth` `D_0.pth`
-  - Place them under the `logs/44k` directory
+- Pre-trained base model files:
+  - [G_0.pth (vec768l12)](https://huggingface.co/Sucial/so-vits-svc4.1-pretrain_model/blob/main/vec768l12/G_0.pth)
+  - [D_0.pth (vec768l12)](https://huggingface.co/Sucial/so-vits-svc4.1-pretrain_model/blob/main/vec768l12/D_0.pth)
+  - Place them under the `pretrain/base_models/44k` directory
 
-- Diffusion model pretraining base model file: `model_0.pt`
-  - Put it in the `logs/44k/diffusion` directory
+- Diffusion pre-trained base model file:
+  - [model_0.pt (diffusion/768l12)](https://huggingface.co/Sucial/so-vits-svc4.1-pretrain_model/blob/main/diffusion/768l12/model_0.pt)
+  - Put it in the `pretrain/base_models/44k/diffusion` directory
 
-Get Sovits Pre-trained model from svc-develop-team(TBD) or anywhere else.
+At training start, the app will sync these base models into the runtime experiment directory `logs/44k/`. `logs/44k` is now mainly the output directory for training artifacts, not the long-term storage location for base models.
 
-Diffusion model references [Diffusion-SVC](https://github.com/CNChTu/Diffusion-SVC) diffusion model. The pre-trained diffusion model is universal with the DDSP-SVC's. You can go to [Diffusion-SVC](https://github.com/CNChTu/Diffusion-SVC)'s repo to get the pre-trained diffusion model.
+These links match the current repository's default `vec768l12` / ContentVec route. Do not mix them with same-named files from other encoder folders such as `vec256l9`.
 
 While the pretrained model typically does not pose copyright concerns, it is essential to remain vigilant. It is advisable to consult with the author beforehand or carefully review the description to ascertain the permissible usage of the model. This helps ensure compliance with any specified guidelines or restrictions regarding its utilization.
 
@@ -160,13 +253,13 @@ While the pretrained model typically does not pose copyright concerns, it is ess
 If you are using the `NSF-HIFIGAN enhancer` or `shallow diffusion`, you will need to download the pre-trained NSF-HIFIGAN model.
 
 - Pre-trained NSF-HIFIGAN Vocoder: [nsf_hifigan_20221211.zip](https://github.com/openvpi/vocoders/releases/download/nsf-hifigan-v1/nsf_hifigan_20221211.zip)
-  - Unzip and place the four files under the `pretrain/nsf_hifigan` directory
+  - Unzip and place the four files under the `pretrain/vocoders/nsf_hifigan` directory
 
 ```shell
 # nsf_hifigan
 wget -P pretrain/ https://github.com/openvpi/vocoders/releases/download/nsf-hifigan-v1/nsf_hifigan_20221211.zip
-unzip -od pretrain/nsf_hifigan pretrain/nsf_hifigan_20221211.zip
-# Alternatively, you can manually download and place it in the pretrain/nsf_hifigan directory
+unzip -od pretrain/vocoders/nsf_hifigan pretrain/nsf_hifigan_20221211.zip
+# Alternatively, you can manually download and place it in the pretrain/vocoders/nsf_hifigan directory
 # URL: https://github.com/openvpi/vocoders/releases/tag/nsf-hifigan-v1
 ```
 
@@ -175,10 +268,10 @@ unzip -od pretrain/nsf_hifigan pretrain/nsf_hifigan_20221211.zip
 If you are using the `rmvpe` F0 Predictor, you will need to download the pre-trained RMVPE model.
 
 + download model at [rmvpe.zip](https://github.com/yxlllc/RMVPE/releases/download/230917/rmvpe.zip), this weight is recommended.
-  + unzip `rmvpe.zip`，and rename the `model.pt` file to `rmvpe.pt` and place it under the `pretrain` directory.
+  + unzip `rmvpe.zip`，and rename the `model.pt` file to `rmvpe.pt` and place it under the `pretrain/encoders` directory.
 
 - ~~download model at [rmvpe.pt](https://huggingface.co/datasets/ylzz1997/rmvpe_pretrain_model/resolve/main/rmvpe.pt)~~
-  - ~~Place it under the `pretrain` directory~~
+  - ~~Place it under the `pretrain/encoders` directory~~
 
 ##### FCPE(Preview version)
 
@@ -189,9 +282,10 @@ If you are using the `fcpe` F0 Predictor, you will need to download the pre-trai
 - download model at [fcpe.pt](https://huggingface.co/datasets/ylzz1997/rmvpe_pretrain_model/resolve/main/fcpe.pt)
   - Place it under the `pretrain` directory
 
-## 📊 Dataset Preparation
+## 📊 Dataset Preparation (Low-level Script Reference)
 
-Simply place the dataset in the `dataset_raw` directory with the following file structure:
+For the current customized repository, it is recommended to import speaker folders from `app_train.py`.  
+If you use the low-level CLI flow, the dataset structure is still the following:
 
 ```
 dataset_raw
@@ -216,7 +310,7 @@ dataset_raw
     └───25788785-20221210-200143-856_01_(Vocals)_0_0.wav
 ```
 
-## 🛠️ Preprocessing
+## 🛠️ Preprocessing (Low-level Script Reference)
 
 ### 0. Slice audio
 
@@ -233,21 +327,17 @@ After slicing, it is recommended to remove any audio clips that are excessively 
 ### 1. Resample to 44100Hz and mono
 
 ```shell
-python resample.py
+python -m train_pipeline.resample
 ```
 
 #### Cautions
 
-Although this project has resample.py scripts for resampling, mono and loudness matching, the default loudness matching is to match to 0db. This can cause damage to the sound quality. While python's loudness matching package pyloudnorm does not limit the level, this can lead to sonic boom. Therefore, it is recommended to consider using professional sound processing software, such as `adobe audition` for loudness matching. If you are already using other software for loudness matching, add the parameter `-skip_loudnorm` to the run command:
-
-```shell
-python resample.py --skip_loudnorm
-```
+Current `train_pipeline/resample.py` only trims silence and resamples audio. Loudness, gain staging, and limiter processing are no longer handled inside the project. Please finish those steps in your own audio workflow before training.
 
 ### 2. Automatically split the dataset into training and validation sets, and generate configuration files.
 
 ```shell
-python preprocess_flist_config.py --speech_encoder vec768l12
+python -m train_pipeline.preprocess_flist_config --speech_encoder vec768l12
 ```
 
 speech_encoder has the following options
@@ -270,7 +360,7 @@ If the speech_encoder argument is omitted, the default value is `vec768l12`
 Add `--vol_aug` if you want to enable loudness embedding:
 
 ```shell
-python preprocess_flist_config.py --speech_encoder vec768l12 --vol_aug
+python -m train_pipeline.preprocess_flist_config --speech_encoder vec768l12 --vol_aug
 ```
 
 After enabling loudness embedding, the trained model will match the loudness of the input source; otherwise, it will match the loudness of the training set.
@@ -307,7 +397,7 @@ nsf-snake-hifigan
 ### 3. Generate hubert and f0
 
 ```shell
-python preprocess_hubert_f0.py --f0_predictor dio
+python -m train_pipeline.preprocess_hubert_f0 --f0_predictor dio
 ```
 
 f0_predictor has the following options
@@ -328,7 +418,7 @@ If the f0_predictor parameter is omitted, the default value is `rmvpe`
 If you want shallow diffusion (optional), you need to add the `--use_diff` parameter, for example:
 
 ```shell
-python preprocess_hubert_f0.py --f0_predictor dio --use_diff
+python -m train_pipeline.preprocess_hubert_f0 --f0_predictor dio --use_diff
 ```
 
 **Speed Up preprocess**
@@ -336,18 +426,18 @@ python preprocess_hubert_f0.py --f0_predictor dio --use_diff
 If your dataset is pretty large,you can increase the param `--num_processes` like that:
 
 ```shell
-python preprocess_hubert_f0.py --f0_predictor dio --num_processes 8
+python -m train_pipeline.preprocess_hubert_f0 --f0_predictor dio --num_processes 8
 ```
 All the worker will be assigned to different GPU if you have more than one GPUs.
 
 After completing the above steps, the dataset directory will contain the preprocessed data, and the dataset_raw folder can be deleted.
 
-## 🏋️‍ Training
+## 🏋️‍ Training (Low-level Script Reference)
 
 ### Sovits Model
 
 ```shell
-python train.py -c configs/config.json -m 44k
+python -m train_pipeline.train -c configs/config.json -m 44k
 ```
 
 ### Diffusion Model (optional)
@@ -355,18 +445,19 @@ python train.py -c configs/config.json -m 44k
 If the shallow diffusion function is needed, the diffusion model needs to be trained. The diffusion model training method is as follows:
 
 ```shell
-python train_diff.py -c configs/diffusion.yaml
+python -m train_pipeline.train_diff -c configs/diffusion.yaml
 ```
 
 During training, the model files will be saved to `logs/44k`, and the diffusion model will be saved to `logs/44k/diffusion`
 
-## 🤖 Inference
+## 🤖 Inference (Low-level Script Reference)
 
-Use [inference_main.py](https://github.com/svc-develop-team/so-vits-svc/blob/4.0/inference_main.py)
+If you are using the current customized repository, prefer `app_infer.py`.  
+The section below is the CLI reference for `services/inference_main.py`.
 
 ```shell
 # Example
-python inference_main.py -m "logs/44k/G_30400.pth" -c "configs/config.json" -n "君の知らない物語-src.wav" -t 0 -s "nen"
+python -m services.inference_main -m "logs/44k/G_30400.pth" -c "configs/config.json" -n "君の知らない物語-src.wav" -t 0 -s "nen"
 ```
 
 Required parameters:
@@ -408,7 +499,7 @@ If you are satisfied with the previous results, or if you do not feel you unders
 
 During the training of the 4.0 model, an f0 predictor is also trained, which enables automatic pitch prediction during voice conversion. However, if the results are not satisfactory, manual pitch prediction can be used instead. Please note that when converting singing voices, it is advised not to enable this feature as it may cause significant pitch shifting.
 
-- Set `auto_predict_f0` to `true` in `inference_main.py`.
+- Set `auto_predict_f0` to `true` in `services/inference_main.py`.
 
 ### Cluster-based timbre leakage control
 
@@ -421,8 +512,8 @@ No changes are required in the existing steps. Simply train an additional cluste
   - Execute `python cluster/train_cluster.py`. The output model will be saved in `logs/44k/kmeans_10000.pt`.
   - The clustering model can currently be trained using the gpu by executing `python cluster/train_cluster.py --gpu`
 - Inference process:
-  - Specify `cluster_model_path` in `inference_main.py`. If not specified, the default is `logs/44k/kmeans_10000.pt`.
-  - Specify `cluster_infer_ratio` in `inference_main.py`, where `0` means not using clustering at all, `1` means only using clustering, and usually `0.5` is sufficient.
+  - Specify `cluster_model_path` in `services/inference_main.py`. If not specified, the default is `logs/44k/kmeans_10000.pt`.
+  - Specify `cluster_infer_ratio` in `services/inference_main.py`, where `0` means not using clustering at all, `1` means only using clustering, and usually `0.5` is sufficient.
 
 ### Feature retrieval
 
@@ -432,15 +523,15 @@ Introduction: As with the clustering scheme, the timbre leakage can be reduced, 
   First, it needs to be executed after generating hubert and f0: 
 
 ```shell
-python train_index.py -c configs/config.json
+python -m train_pipeline.train_index -c configs/config.json
 ```
 
 The output of the model will be in `logs/44k/feature_and_index.pkl`
 
 - Inference process: 
   - The `--feature_retrieval` needs to be formulated first, and the clustering mode automatically switches to the feature retrieval mode.
-  - Specify `cluster_model_path` in `inference_main.py`. If not specified, the default is `logs/44k/feature_and_index.pkl`.
-  - Specify `cluster_infer_ratio` in `inference_main.py`, where `0` means not using feature retrieval at all, `1` means only using feature retrieval, and usually `0.5` is sufficient.
+  - Specify `cluster_model_path` in `services/inference_main.py`. If not specified, the default is `logs/44k/feature_and_index.pkl`.
+  - Specify `cluster_infer_ratio` in `services/inference_main.py`, where `0` means not using feature retrieval at all, `1` means only using feature retrieval, and usually `0.5` is sufficient.
 
 ## 🗜️ Model compression
 
@@ -448,14 +539,14 @@ The generated model contains data that is needed for further training. If you co
 
 ```shell
 # Example
-python compress_model.py -c="configs/config.json" -i="logs/44k/G_30400.pth" -o="logs/44k/release.pth"
+python -m tools.compress_model -c="configs/config.json" -i="logs/44k/G_30400.pth" -o="logs/44k/release.pth"
 ```
 
 ## 👨‍🔧 Timbre mixing
 
 ### Static Tone Mixing
 
-**Refer to `webUI.py` file for stable Timbre mixing of the gadget/lab feature.**
+**Refer to `app_infer.py` file for stable Timbre mixing of the gadget/lab feature.**
 
 Introduction: This function can combine multiple models into one model (convex combination or linear combination of multiple model parameters) to create mixed voice that do not exist in reality
 
@@ -489,13 +580,13 @@ Use the `--use_spk_mix` parameter when reasoning to enable dynamic timbre mixing
 
 ## 📤 Exporting to Onnx
 
-Use [onnx_export.py](https://github.com/svc-develop-team/so-vits-svc/blob/4.0/onnx_export.py)
+Use [tools/onnx_export.py](https://github.com/svc-develop-team/so-vits-svc/blob/4.0/onnx_export.py)
 
 - Create a folder named `checkpoints` and open it
 - Create a folder in the `checkpoints` folder as your project folder, naming it after your project, for example `aziplayer`
 - Rename your model as `model.pth`, the configuration file as `config.json`, and place them in the `aziplayer` folder you just created
-- Modify `"NyaruTaffy"` in `path = "NyaruTaffy"` in [onnx_export.py](https://github.com/svc-develop-team/so-vits-svc/blob/4.0/onnx_export.py) to your project name, `path = "aziplayer"`（onnx_export_speaker_mix makes you can mix speaker's voice）
-- Run [onnx_export.py](https://github.com/svc-develop-team/so-vits-svc/blob/4.0/onnx_export.py)
+- Modify `"NyaruTaffy"` in `path = "NyaruTaffy"` in [tools/onnx_export.py](https://github.com/svc-develop-team/so-vits-svc/blob/4.0/onnx_export.py) to your project name, `path = "aziplayer"`（onnx_export_speaker_mix makes you can mix speaker's voice）
+- Run `python -m tools.onnx_export`
 - Wait for it to finish running. A `model.onnx` will be generated in your project folder, which is the exported model.
 
 Note: For Hubert Onnx models, please use the models provided by MoeSS. Currently, they cannot be exported on their own (Hubert in fairseq has many unsupported operators and things involving constants that can cause errors or result in problems with the input/output shape and results when exported.)

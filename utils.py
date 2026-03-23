@@ -20,13 +20,41 @@ from torch.nn import functional as F
 MATPLOTLIB_FLAG = False
 
 logging.basicConfig(stream=sys.stdout, level=logging.WARN)
-logger = logging
+logger = logging.getLogger(__name__)
 
 f0_bin = 256
 f0_max = 1100.0
 f0_min = 50.0
 f0_mel_min = 1127 * np.log(1 + f0_min / 700)
 f0_mel_max = 1127 * np.log(1 + f0_max / 700)
+
+
+SPEECH_ENCODER_SPECS = {
+    "vec768l12": {
+        "label": "ContentVec（transformers / HF）",
+        "ssl_dim": 768,
+        "diffusion_out_channels": 768,
+        "loader": lambda device=None, **kargs: __import__(
+            "vencoder.ContentVec768L12", fromlist=["ContentVec768L12"]
+        ).ContentVec768L12(device=device, vec_path=kargs.get("vec_path")),
+    },
+}
+
+LEGACY_SPEECH_ENCODER_ALIASES = {
+    "vec768l12_fairseq": "vec768l12",
+    "vec768l12_hf": "vec768l12",
+}
+
+
+def get_speech_encoder_spec(speech_encoder):
+    """返回编码器元信息，不存在时回落到当前稳定默认值。"""
+    speech_encoder = LEGACY_SPEECH_ENCODER_ALIASES.get(speech_encoder, speech_encoder)
+    return SPEECH_ENCODER_SPECS.get(speech_encoder, SPEECH_ENCODER_SPECS["vec768l12"])
+
+
+def get_supported_speech_encoders():
+    """返回当前项目可识别的编码器名称列表。"""
+    return list(SPEECH_ENCODER_SPECS.keys())
 
 def normalize_f0(f0, x_mask, uv, random_scale=True):
     # calculate means based on x_mask
@@ -86,71 +114,27 @@ def get_content(cmodel, y):
     return c
 
 def get_f0_predictor(f0_predictor,hop_length,sampling_rate,**kargs):
-    if f0_predictor == "pm":
-        from modules.F0Predictor.PMF0Predictor import PMF0Predictor
-        f0_predictor_object = PMF0Predictor(hop_length=hop_length,sampling_rate=sampling_rate)
-    elif f0_predictor == "crepe":
-        from modules.F0Predictor.CrepeF0Predictor import CrepeF0Predictor
-        f0_predictor_object = CrepeF0Predictor(hop_length=hop_length,sampling_rate=sampling_rate,device=kargs["device"],threshold=kargs["threshold"])
-    elif f0_predictor == "harvest":
-        from modules.F0Predictor.HarvestF0Predictor import HarvestF0Predictor
-        f0_predictor_object = HarvestF0Predictor(hop_length=hop_length,sampling_rate=sampling_rate)
-    elif f0_predictor == "dio":
-        from modules.F0Predictor.DioF0Predictor import DioF0Predictor
-        f0_predictor_object = DioF0Predictor(hop_length=hop_length,sampling_rate=sampling_rate) 
-    elif f0_predictor == "rmvpe":
+    # 极致音质配置：只保留 rmvpe F0预测器
+    if f0_predictor == "rmvpe":
         from modules.F0Predictor.RMVPEF0Predictor import RMVPEF0Predictor
         f0_predictor_object = RMVPEF0Predictor(hop_length=hop_length,sampling_rate=sampling_rate,dtype=torch.float32 ,device=kargs["device"],threshold=kargs["threshold"])
-    elif f0_predictor == "fcpe":
-        from modules.F0Predictor.FCPEF0Predictor import FCPEF0Predictor
-        f0_predictor_object = FCPEF0Predictor(hop_length=hop_length,sampling_rate=sampling_rate,dtype=torch.float32 ,device=kargs["device"],threshold=kargs["threshold"])
     else:
-        raise Exception("Unknown f0 predictor")
+        # 如果指定了其他预测器，强制使用 rmvpe
+        logger.warning(f"[极致音质配置] 检测到使用 {f0_predictor}，已自动切换为 rmvpe")
+        from modules.F0Predictor.RMVPEF0Predictor import RMVPEF0Predictor
+        f0_predictor_object = RMVPEF0Predictor(hop_length=hop_length,sampling_rate=sampling_rate,dtype=torch.float32 ,device=kargs["device"],threshold=kargs["threshold"])
     return f0_predictor_object
 
 def get_speech_encoder(speech_encoder,device=None,**kargs):
-    if speech_encoder == "vec768l12":
-        from vencoder.ContentVec768L12 import ContentVec768L12
-        speech_encoder_object = ContentVec768L12(device = device)
-    elif speech_encoder == "vec256l9":
-        from vencoder.ContentVec256L9 import ContentVec256L9
-        speech_encoder_object = ContentVec256L9(device = device)
-    elif speech_encoder == "vec256l9-onnx":
-        from vencoder.ContentVec256L9_Onnx import ContentVec256L9_Onnx
-        speech_encoder_object = ContentVec256L9_Onnx(device = device)
-    elif speech_encoder == "vec256l12-onnx":
-        from vencoder.ContentVec256L12_Onnx import ContentVec256L12_Onnx
-        speech_encoder_object = ContentVec256L12_Onnx(device = device)
-    elif speech_encoder == "vec768l9-onnx":
-        from vencoder.ContentVec768L9_Onnx import ContentVec768L9_Onnx
-        speech_encoder_object = ContentVec768L9_Onnx(device = device)
-    elif speech_encoder == "vec768l12-onnx":
-        from vencoder.ContentVec768L12_Onnx import ContentVec768L12_Onnx
-        speech_encoder_object = ContentVec768L12_Onnx(device = device)
-    elif speech_encoder == "hubertsoft-onnx":
-        from vencoder.HubertSoft_Onnx import HubertSoft_Onnx
-        speech_encoder_object = HubertSoft_Onnx(device = device)
-    elif speech_encoder == "hubertsoft":
-        from vencoder.HubertSoft import HubertSoft
-        speech_encoder_object = HubertSoft(device = device)
-    elif speech_encoder == "whisper-ppg":
-        from vencoder.WhisperPPG import WhisperPPG
-        speech_encoder_object = WhisperPPG(device = device)
-    elif speech_encoder == "cnhubertlarge":
-        from vencoder.CNHubertLarge import CNHubertLarge
-        speech_encoder_object = CNHubertLarge(device = device)
-    elif speech_encoder == "dphubert":
-        from vencoder.DPHubert import DPHubert
-        speech_encoder_object = DPHubert(device = device)
-    elif speech_encoder == "whisper-ppg-large":
-        from vencoder.WhisperPPGLarge import WhisperPPGLarge
-        speech_encoder_object = WhisperPPGLarge(device = device)
-    elif speech_encoder == "wavlmbase+":
-        from vencoder.WavLMBasePlus import WavLMBasePlus
-        speech_encoder_object = WavLMBasePlus(device = device)
-    else:
-        raise Exception("Unknown speech encoder")
-    return speech_encoder_object 
+    """按名称创建内容编码器，为后续并行验证不同实现预留入口。"""
+    speech_encoder = LEGACY_SPEECH_ENCODER_ALIASES.get(speech_encoder, speech_encoder)
+    if speech_encoder not in SPEECH_ENCODER_SPECS:
+        logger.warning(
+            f"[极致音质配置] 检测到使用 {speech_encoder}，已自动切换为 vec768l12。"
+        )
+        speech_encoder = "vec768l12"
+    spec = get_speech_encoder_spec(speech_encoder)
+    return spec["loader"](device=device, **kargs)
 
 def load_checkpoint(checkpoint_path, model, optimizer=None, skip_optimizer=False):
     assert os.path.isfile(checkpoint_path)
@@ -315,6 +299,8 @@ def get_hparams(init=True):
                       help='JSON file for configuration')
   parser.add_argument('-m', '--model', type=str, required=True,
                       help='Model name')
+  parser.add_argument('--batch-size', type=int, default=None,
+                      help='Optional per-GPU batch size override for main training')
 
   args = parser.parse_args()
   model_dir = os.path.join("./logs", args.model)
@@ -333,6 +319,9 @@ def get_hparams(init=True):
     with open(config_save_path, "r") as f:
       data = f.read()
   config = json.loads(data)
+  if args.batch_size is not None:
+    config.setdefault("train", {})
+    config["train"]["batch_size"] = args.batch_size
 
   hparams = HParams(**config)
   hparams.model_dir = model_dir

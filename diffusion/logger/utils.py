@@ -105,7 +105,8 @@ def load_model(
         optimizer,
         name='model',
         postfix='',
-        device='cpu'):
+        device='cpu',
+        fallback_checkpoint=None):
     if postfix == '':
         postfix = '_' + postfix
     path = os.path.join(expdir, name+postfix)
@@ -124,4 +125,9 @@ def load_model(
         model.load_state_dict(ckpt['model'], strict=False)
         if ckpt.get("optimizer") is not None:
             optimizer.load_state_dict(ckpt['optimizer'])
+    elif fallback_checkpoint is not None and os.path.isfile(fallback_checkpoint):
+        print(' [*] restoring base model from', fallback_checkpoint)
+        ckpt = torch.load(fallback_checkpoint, map_location=torch.device(device))
+        global_step = 0
+        model.load_state_dict(ckpt['model'], strict=False)
     return global_step, model, optimizer

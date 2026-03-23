@@ -1,0 +1,66 @@
+"""主模型训练包装器：先自动探测 batch size，再切入正式训练。"""
+
+import argparse
+import json
+import os
+import sys
+
+from train_pipeline.autobatch_probe import generate_candidate_batch_sizes, run_single_probe
+import utils
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c", "--config", type=str, required=True, help="训练配置文件")
+    parser.add_argument("-m", "--model", type=str, required=True, help="模型工作区名称")
+    parser.add_argument("--device", type=str, default="cuda:0", help="用于探测的设备")
+    parser.add_argument("--start-batch-size", type=int, default=None, help="起始每卡 batch size")
+    parser.add_argument("--max-batch-size", type=int, default=64, help="探测上限")
+    parser.add_argument("--max-trials", type=int, default=6, help="最多探测次数")
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    hps = utils.get_hparams_from_file(args.config)
+    start_batch_size = args.start_batch_size or hps.train.batch_size
+    candidate_batch_sizes = generate_candidate_batch_sizes(
+        start_batch_size, args.max_batch_size, args.max_trials
+    )
+
+    print(f"[AutoBatch] 已启用训练前自动探测，设备：{args.device}，起始每卡 batch size：{start_batch_size}")
+    trials = []
+    last_success = None
+    for batch_size in candidate_batch_sizes:
+        result = run_single_probe(hps, batch_size, args.device)
+        trials.append(result)
+        print(json.dumps(result, ensure_ascii=False))
+        if result["ok"]:
+            last_success = batch_size
+            continue
+        break
+
+    if last_success is None:
+        raise RuntimeError(
+            "自动 batch size 探测未找到可用值，请先手动降低 batch_size，或关闭训练前自动探测。"
+        )
+
+    print(f"[AutoBatch] 推荐每卡 batch size：{last_success}，即将切入正式训练。")
+    os.execv(
+        sys.executable,
+        [
+            sys.executable,
+            "-m",
+            "train_pipeline.train",
+            "-c",
+            args.config,
+            "-m",
+            args.model,
+            "--batch-size",
+            str(last_success),
+        ],
+    )
+
+
+if __name__ == "__main__":
+    main()

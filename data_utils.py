@@ -7,7 +7,7 @@ import torch.utils.data
 
 import utils
 from modules.mel_processing import spectrogram_torch
-from utils import load_filepaths_and_text, load_wav_to_torch
+from utils import load_filepaths_and_text
 
 # import h5py
 
@@ -46,39 +46,34 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
 
     def get_audio(self, filename):
         filename = filename.replace("\\", "/")
-        audio, sampling_rate = load_wav_to_torch(filename)
-        if sampling_rate != self.sampling_rate:
-            raise ValueError(
-                "Sample Rate not match. Expect {} but got {} from {}".format(
-                    self.sampling_rate, sampling_rate, filename))
-        audio_norm = audio / self.max_wav_value
-        audio_norm = audio_norm.unsqueeze(0)
-        spec_filename = filename.replace(".wav", ".spec.pt")
-
-        # Ideally, all data generated after Mar 25 should have .spec.pt
-        if os.path.exists(spec_filename):
-            spec = torch.load(spec_filename)
-        else:
-            spec = spectrogram_torch(audio_norm, self.filter_length,
-                                     self.sampling_rate, self.hop_length, self.win_length,
-                                     center=False)
-            spec = torch.squeeze(spec, 0)
-            torch.save(spec, spec_filename)
-
         spk = filename.split("/")[-2]
         spk = torch.LongTensor([self.spk_map[spk]])
+        train_bundle_path = filename + ".train.pt"
+        if not os.path.exists(train_bundle_path):
+            raise FileNotFoundError(
+                f"未找到训练特征包：{train_bundle_path}。请重新执行第 3 步：提取特征，以生成 .train.pt。"
+            )
 
-        f0, uv = np.load(filename + ".f0.npy",allow_pickle=True)
-        
-        f0 = torch.FloatTensor(np.array(f0,dtype=float))
-        uv = torch.FloatTensor(np.array(uv,dtype=float))
-
-        c = torch.load(filename+ ".soft.pt")
-        c = utils.repeat_expand_2d(c.squeeze(0), f0.shape[0], mode=self.unit_interpolate_mode)
+        bundle = torch.load(train_bundle_path)
+        audio_norm = bundle.get("audio")
+        if audio_norm is None:
+            raise RuntimeError(
+                f"训练特征包缺少 audio 字段：{train_bundle_path}。请重新执行第 3 步：提取特征。"
+            )
+        audio_norm = audio_norm.float()
+        f0 = bundle["f0"].float()
+        uv = bundle["uv"].float()
+        spec = bundle["spec"].float()
+        c = utils.repeat_expand_2d(
+            bundle["soft"].squeeze(0), f0.shape[0], mode=self.unit_interpolate_mode
+        )
         if self.vol_emb:
-            volume_path = filename + ".vol.npy"
-            volume = np.load(volume_path)
-            volume = torch.from_numpy(volume).float()
+            volume = bundle.get("volume")
+            if volume is None:
+                raise RuntimeError(
+                    f"训练特征包缺少 volume 字段：{train_bundle_path}。当前模型启用了响度嵌入，请重新执行第 3 步：提取特征。"
+                )
+            volume = volume.float()
         else:
             volume = None
 

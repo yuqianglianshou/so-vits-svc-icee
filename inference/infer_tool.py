@@ -18,6 +18,7 @@ import torchaudio
 
 import cluster
 import utils
+from path_utils import get_nsf_hifigan_model_path
 from diffusion.unit2mel import load_model_vocoder
 from inference import slicer
 from models import SynthesizerTrn
@@ -184,7 +185,7 @@ class Svc(object):
             self.nsf_hifigan_enhance = False
         if self.nsf_hifigan_enhance:
             from modules.enhancer import Enhancer
-            self.enhancer = Enhancer('nsf-hifigan', 'pretrain/nsf_hifigan/model',device=self.dev)
+            self.enhancer = Enhancer('nsf-hifigan', str(get_nsf_hifigan_model_path()),device=self.dev)
             
     def load_model(self, spk_mix_enable=False):
         # get model configuration
@@ -200,6 +201,19 @@ class Svc(object):
             _ = self.net_g_ms.eval().to(self.dev)
         if spk_mix_enable:
             self.net_g_ms.EnableCharacterMix(len(self.spk2id), self.dev)
+
+    def _resolve_speaker_id(self, speaker):
+        speaker_id = self.spk2id.get(speaker)
+        if speaker_id is None and isinstance(speaker, int):
+            if 0 <= speaker < len(self.spk2id):
+                speaker_id = speaker
+        if speaker_id is None and isinstance(speaker, str) and speaker.isdigit():
+            speaker_idx = int(speaker)
+            if 0 <= speaker_idx < len(self.spk2id):
+                speaker_id = speaker_idx
+        if speaker_id is None:
+            raise RuntimeError("The name you entered is not in the speaker list!")
+        return int(speaker_id)
 
     def get_unit_f0(self, wav, tran, cluster_infer_ratio, speaker, f0_filter ,f0_predictor,cr_threshold=0.05):
 
@@ -226,12 +240,7 @@ class Svc(object):
 
         if cluster_infer_ratio !=0:
             if self.feature_retrieval:
-                speaker_id = self.spk2id.get(speaker)
-                if not speaker_id and type(speaker) is int:
-                    if len(self.spk2id.__dict__) >= speaker:
-                        speaker_id = speaker
-                if speaker_id is None:
-                    raise RuntimeError("The name you entered is not in the speaker list!")
+                speaker_id = self._resolve_speaker_id(speaker)
                 feature_index = self.cluster_model[speaker_id]
                 feat_np = np.ascontiguousarray(c.transpose(0,1).cpu().numpy())
                 if self.big_npy is None or self.now_spk_id != speaker_id:
@@ -269,7 +278,7 @@ class Svc(object):
               ):
         torchaudio.set_audio_backend("soundfile")
         wav, sr = torchaudio.load(raw_path)
-        if not hasattr(self,"audio_resample_transform") or self.audio16k_resample_transform.orig_freq != sr:
+        if not hasattr(self, "audio_resample_transform") or self.audio_resample_transform.orig_freq != sr:
             self.audio_resample_transform = torchaudio.transforms.Resample(sr,self.target_sample)
         wav = self.audio_resample_transform(wav).numpy()[0]
         if spk_mix:
@@ -277,12 +286,7 @@ class Svc(object):
             n_frames = f0.size(1)
             sid = speaker[:, frame:frame+n_frames].transpose(0,1)
         else:
-            speaker_id = self.spk2id.get(speaker)
-            if not speaker_id and type(speaker) is int:
-                if len(self.spk2id.__dict__) >= speaker:
-                    speaker_id = speaker
-            if speaker_id is None:
-                raise RuntimeError("The name you entered is not in the speaker list!")
+            speaker_id = self._resolve_speaker_id(speaker)
             sid = torch.LongTensor([int(speaker_id)]).to(self.dev).unsqueeze(0)
             c, f0, uv = self.get_unit_f0(wav, tran, cluster_infer_ratio, speaker, f0_filter,f0_predictor,cr_threshold=cr_threshold)
             n_frames = f0.size(1)
@@ -517,11 +521,15 @@ class RealTimeVC:
         if self.last_chunk is None:
             input_wav_path.seek(0)
 
-            audio, sr = svc_model.infer(speaker_id, f_pitch_change, input_wav_path,
-                                        cluster_infer_ratio=cluster_infer_ratio,
-                                        auto_predict_f0=auto_predict_f0,
-                                        noice_scale=noice_scale,
-                                        f0_filter=f0_filter)
+            audio, _, _ = svc_model.infer(
+                speaker_id,
+                f_pitch_change,
+                input_wav_path,
+                cluster_infer_ratio=cluster_infer_ratio,
+                auto_predict_f0=auto_predict_f0,
+                noice_scale=noice_scale,
+                f0_filter=f0_filter,
+            )
             
             audio = audio.cpu().numpy()
             self.last_chunk = audio[-self.pre_len:]
@@ -532,11 +540,15 @@ class RealTimeVC:
             soundfile.write(temp_wav, audio, sr, format="wav")
             temp_wav.seek(0)
 
-            audio, sr = svc_model.infer(speaker_id, f_pitch_change, temp_wav,
-                                        cluster_infer_ratio=cluster_infer_ratio,
-                                        auto_predict_f0=auto_predict_f0,
-                                        noice_scale=noice_scale,
-                                        f0_filter=f0_filter)
+            audio, _, _ = svc_model.infer(
+                speaker_id,
+                f_pitch_change,
+                temp_wav,
+                cluster_infer_ratio=cluster_infer_ratio,
+                auto_predict_f0=auto_predict_f0,
+                noice_scale=noice_scale,
+                f0_filter=f0_filter,
+            )
 
             audio = audio.cpu().numpy()
             ret = maad.util.crossfade(self.last_o, audio, self.pre_len)

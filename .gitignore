@@ -111,6 +111,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.venv311
 env/
 venv/
 ENV/
@@ -151,6 +152,7 @@ inference/chunks_temp.json
 logs
 hubert/checkpoint_best_legacy_500.pt
 configs/config.json
+configs/diffusion.yaml
 filelists/test.txt
 filelists/train.txt
 filelists/val.txt
@@ -162,6 +164,23 @@ filelists/val.txt
 .idea/inspectionProfiles/profiles_settings.xml
 .idea/inspectionProfiles/Project_Default.xml
 pretrain/
+!pretrain/
+pretrain/nsf_hifigan/
+!pretrain/encoders/
+pretrain/encoders/*.pt
+pretrain/encoders/contentvec_hf/config.json
+pretrain/encoders/contentvec_hf/model.safetensors
+!pretrain/encoders/put_encoder_files_here
+!pretrain/vocoders/
+pretrain/vocoders/nsf_hifigan/
+!pretrain/vocoders/put_vocoder_files_here
+!pretrain/base_models/
+!pretrain/base_models/44k/
+pretrain/base_models/44k/*.pth
+!pretrain/base_models/44k/put_base_models_here
+!pretrain/base_models/44k/diffusion/
+pretrain/base_models/44k/diffusion/*.pt
+!pretrain/base_models/44k/diffusion/put_diffusion_base_model_here
 .vscode/launch.json
 
 trained/**/

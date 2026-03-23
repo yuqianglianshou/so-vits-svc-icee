@@ -75,7 +75,127 @@
 
 ## 💬 关于 Python 版本问题
 
-在进行测试后，我们认为`Python 3.8.9`能够稳定地运行该项目
+根据当前这套改造版仓库的实际验证结果，稳定环境基线是 `Python 3.11.x`
+
+## 🧪 环境约定
+
+当前项目统一使用 Python 自带的 `venv` 作为默认环境方案：
+
+- 虚拟环境固定创建在项目根目录下的 `.venv311`
+- 不再默认使用 Conda / Anaconda
+- Windows 批处理脚本也默认从 `.venv311\Scripts\python.exe` 启动
+
+标准初始化方式：
+
+```shell
+python -m venv .venv311
+```
+
+## ✅ 提交前自检
+
+如果你修改了入口页面、训练流程、推理流程或稳定性相关逻辑，建议提交前至少运行下面两条检查：
+
+```shell
+python3 scripts/verify_stability_fixes.py
+python3 scripts/verify_app_smoke.py
+```
+
+作用说明：
+
+- `verify_stability_fixes.py`
+  - 检查近期修过的稳定性问题是否回退
+  - 包括推理解包、说话人解析、DDP sampler、预处理并行逻辑
+
+- `verify_app_smoke.py`
+  - 检查当前两个入口页面的关键引用和流程约束是否仍然存在
+  - 包括：
+    - `app_train.py` 的训练前依赖与底模、数据集安全与一键流程
+    - `app_infer.py` 的质量模式与运行摘要
+
+## 🚀 当前仓库推荐工作流
+
+如果你使用的是当前这个仓库改造版，推荐优先按下面的方式使用，而不是直接从底层脚本开始。
+
+### 1. 创建虚拟环境并安装依赖
+
+```shell
+python -m venv .venv311
+```
+
+```shell
+# Windows
+.venv311\Scripts\activate
+
+# macOS / Linux
+source .venv311/bin/activate
+
+pip install --upgrade pip setuptools wheel
+# Windows + NVIDIA GPU（推荐）
+pip install -U torch torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip install -r requirements.txt
+```
+
+### 2. 训练模型
+
+推荐入口：
+
+```shell
+python app_train.py
+```
+
+Windows 也可以直接双击：
+
+- `启动训练界面.bat`
+
+训练页顶部负责：
+
+- 检查训练前依赖与底模
+- 导入缺失文件到标准目录
+- 补齐 `pretrain/encoders/`、`pretrain/vocoders/` 和 `pretrain/base_models/44k/` 下的训练依赖与底模
+
+当前训练页支持：
+
+- 导入 `dataset_raw/<说话人目录>/*.wav`
+- 自动建议目录名
+- 删除当前说话人目录
+- 自动同步处理后目录 `dataset/44k/<说话人目录>`
+- 默认把“模型输出名”同步成当前说话人目录名
+- 一键执行重采样、配置生成、特征提取、主模型训练
+- 查看训练前检查、阶段判断、任务状态、日志和错误提示
+
+当前推荐按 **单说话人模式** 使用：
+
+- 一个说话人目录对应一轮训练
+- 一个说话人建议对应一个独立模型输出目录 `logs/<模型名>/`
+- 如果你要训练第二个说话人，不是把两个说话人混进一个模型，而是切换说话人目录并使用新的模型输出名
+
+### 3. 歌声转换
+
+推荐入口：
+
+```shell
+python app_infer.py
+```
+
+当前推理页支持：
+
+- 加载主模型、音质增强模型、音色增强文件
+- 高音质质量模式切换
+- 运行摘要导出
+- 面向离线高质量歌声转换
+
+### 4. 什么时候看下面的旧章节
+
+下面保留的 `数据预处理 / 训练 / 推理` 章节，主要用于：
+
+- 直接调用底层脚本
+- 理解底层训练链路
+- 在 Windows + GPU 机器上做命令行排障
+
+如果你只是正常使用当前仓库，优先使用：
+
+- `app_train.py`
+- `app_infer.py`
 
 ## 📥 预先下载的模型文件
 
@@ -85,20 +205,16 @@
 
 ##### **1. 若使用 contentvec 作为声音编码器（推荐）**
 
-`vec768l12`与`vec256l9` 需要该编码器
+`vec768l12` 当前固定使用 Transformers / HF ContentVec 路线。
 
-+ contentvec ：[checkpoint_best_legacy_500.pt](https://ibm.box.com/s/z1wgl1stco8ffooyatzdwsqn2psd9lrr)
-  + 放在`pretrain`目录下
++ ContentVec HF 目录：`pretrain/encoders/contentvec_hf/`
+  + 目录内需要包含：
+    + `config.json`
+    + `model.safetensors`
+  + 当前项目锁定来源：
+    + `lengyue233/content-vec-best`
 
-或者下载下面的 ContentVec，大小只有 199MB，但效果相同：
-+ contentvec ：[hubert_base.pt](https://huggingface.co/lj1995/VoiceConversionWebUI/resolve/main/hubert_base.pt)
-  + 将文件名改为`checkpoint_best_legacy_500.pt`后，放在`pretrain`目录下
-
-```shell
-# contentvec
-wget -P pretrain/ https://huggingface.co/lj1995/VoiceConversionWebUI/resolve/main/hubert_base.pt -O checkpoint_best_legacy_500.pt
-# 也可手动下载放在 pretrain 目录
-```
+如果本地没有这个目录，程序可以回退到锁定的 Hugging Face 来源自动获取；为了长期稳定，仍建议优先保留本地目录。
 
 ##### **2. 若使用 hubertsoft 作为声音编码器**
 + soft vc hubert：[hubert-soft-0d54a1f4.pt](https://github.com/bshall/hubert/releases/download/v0.1/hubert-soft-0d54a1f4.pt)
@@ -142,15 +258,18 @@ wget -P pretrain/ https://huggingface.co/lj1995/VoiceConversionWebUI/resolve/mai
 
 #### **可选项（强烈建议使用）**
 
-+ 预训练底模文件： `G_0.pth` `D_0.pth`
-  + 放在`logs/44k`目录下
++ 预训练底模文件：
+  + [G_0.pth（vec768l12）](https://huggingface.co/Sucial/so-vits-svc4.1-pretrain_model/blob/main/vec768l12/G_0.pth)
+  + [D_0.pth（vec768l12）](https://huggingface.co/Sucial/so-vits-svc4.1-pretrain_model/blob/main/vec768l12/D_0.pth)
+  + 放在`pretrain/base_models/44k`目录下
 
-+ 扩散模型预训练底模文件： `model_0.pt`
-  + 放在`logs/44k/diffusion`目录下
++ 扩散模型预训练底模文件：
+  + [model_0.pt（diffusion/768l12）](https://huggingface.co/Sucial/so-vits-svc4.1-pretrain_model/blob/main/diffusion/768l12/model_0.pt)
+  + 放在`pretrain/base_models/44k/diffusion`目录下
 
-从 svc-develop-team（待定）或任何其他地方获取 Sovits 底模
+训练开始时，程序会自动把这组底模同步到运行期实验目录 `logs/44k/`，所以 `logs/44k` 现在主要表示训练产物目录，而不是长期存放底模的目录。
 
-扩散模型引用了 [Diffusion-SVC](https://github.com/CNChTu/Diffusion-SVC) 的 Diffusion Model，底模与 [Diffusion-SVC](https://github.com/CNChTu/Diffusion-SVC) 的扩散模型底模通用，可以去 [Diffusion-SVC](https://github.com/CNChTu/Diffusion-SVC) 获取扩散模型的底模
+上面这组链接对应当前仓库默认的 `vec768l12` / `ContentVec` 路线，不要和 `vec256l9` 等其他目录里的同名底模混用。
 
 虽然底模一般不会引起什么版权问题，但还是请注意一下，比如事先询问作者，又或者作者在模型描述中明确写明了可行的用途
 
@@ -161,13 +280,13 @@ wget -P pretrain/ https://huggingface.co/lj1995/VoiceConversionWebUI/resolve/mai
 如果使用`NSF-HIFIGAN 增强器`或`浅层扩散`的话，需要下载预训练的 NSF-HIFIGAN 模型，如果不需要可以不下载
 
 + 预训练的 NSF-HIFIGAN 声码器 ：[nsf_hifigan_20221211.zip](https://github.com/openvpi/vocoders/releases/download/nsf-hifigan-v1/nsf_hifigan_20221211.zip)
-  + 解压后，将四个文件放在`pretrain/nsf_hifigan`目录下
+  + 解压后，将四个文件放在`pretrain/vocoders/nsf_hifigan`目录下
 
 ```shell
 # nsf_hifigan
 wget -P pretrain/ https://github.com/openvpi/vocoders/releases/download/nsf-hifigan-v1/nsf_hifigan_20221211.zip
-unzip -od pretrain/nsf_hifigan pretrain/nsf_hifigan_20221211.zip
-# 也可手动下载放在 pretrain/nsf_hifigan 目录
+unzip -od pretrain/vocoders/nsf_hifigan pretrain/nsf_hifigan_20221211.zip
+# 也可手动下载放在 pretrain/vocoders/nsf_hifigan 目录
 # 地址：https://github.com/openvpi/vocoders/releases/tag/nsf-hifigan-v1
 ```
 
@@ -176,10 +295,10 @@ unzip -od pretrain/nsf_hifigan pretrain/nsf_hifigan_20221211.zip
 如果使用`rmvpe`F0预测器的话，需要下载预训练的 RMVPE 模型
 
 + 下载模型[rmvpe.zip](https://github.com/yxlllc/RMVPE/releases/download/230917/rmvpe.zip)，目前首推该权重。
-  + 解压缩`rmvpe.zip`，并将其中的`model.pt`文件改名为`rmvpe.pt`并放在`pretrain`目录下
+  + 解压缩`rmvpe.zip`，并将其中的`model.pt`文件改名为`rmvpe.pt`并放在`pretrain/encoders`目录下
 
 + ~~下载模型 [rmvpe.pt](https://huggingface.co/datasets/ylzz1997/rmvpe_pretrain_model/resolve/main/rmvpe.pt)~~
-  + ~~放在`pretrain`目录下~~
+  + ~~放在`pretrain/encoders`目录下~~
 
 ##### FCPE(预览版)
 
@@ -193,9 +312,10 @@ unzip -od pretrain/nsf_hifigan pretrain/nsf_hifigan_20221211.zip
   + 放在`pretrain`目录下
 
 
-## 📊 数据集准备
+## 📊 数据集准备（底层脚本参考）
 
-仅需要以以下文件结构将数据集放入 dataset_raw 目录即可。
+当前仓库推荐直接在 `app_train.py` 页面中导入说话人目录。  
+如果你走命令行底层流程，数据集结构仍然是下面这种：
 
 ```
 dataset_raw
@@ -220,7 +340,7 @@ dataset_raw
     └───25788785-20221210-200143-856_01_(Vocals)_0_0.wav
 ```
 
-## 🛠️ 数据预处理
+## 🛠️ 数据预处理（底层脚本参考）
 
 ### 0. 音频切片
 
@@ -237,21 +357,17 @@ dataset_raw
 ### 1. 重采样至 44100Hz 单声道
 
 ```shell
-python resample.py
+python -m train_pipeline.resample
 ```
 
 #### 注意
 
-虽然本项目拥有重采样、转换单声道与响度匹配的脚本 resample.py，但是默认的响度匹配是匹配到 0db。这可能会造成音质的受损。而 python 的响度匹配包 pyloudnorm 无法对电平进行压限，这会导致爆音。所以建议可以考虑使用专业声音处理软件如`adobe audition`等软件做响度匹配处理。若已经使用其他软件做响度匹配，可以在运行上述命令时添加`--skip_loudnorm`跳过响度匹配步骤。如：
-
-```shell
-python resample.py --skip_loudnorm
-```
+当前 `train_pipeline/resample.py` 只负责裁剪静音和重采样，不再在项目内做响度、电平或限幅处理。训练音频的响度整理、增益控制和 limiter，请在进入项目之前由你自己的音频处理流程完成。
 
 ### 2. 自动划分训练集、验证集，以及自动生成配置文件
 
 ```shell
-python preprocess_flist_config.py --speech_encoder vec768l12
+python -m train_pipeline.preprocess_flist_config --speech_encoder vec768l12
 ```
 
 speech_encoder 拥有以下选择
@@ -274,7 +390,7 @@ wavlmbase+
 若使用响度嵌入，需要增加`--vol_aug`参数，比如：
 
 ```shell
-python preprocess_flist_config.py --speech_encoder vec768l12 --vol_aug
+python -m train_pipeline.preprocess_flist_config --speech_encoder vec768l12 --vol_aug
 ```
 使用后训练出的模型将匹配到输入源响度，否则为训练集响度。
 
@@ -312,7 +428,7 @@ nsf-snake-hifigan
 ### 3. 生成 hubert 与 f0
 
 ```shell
-python preprocess_hubert_f0.py --f0_predictor dio
+python -m train_pipeline.preprocess_hubert_f0 --f0_predictor dio
 ```
 
 f0_predictor 拥有以下选择
@@ -333,24 +449,24 @@ fcpe
 尚若需要浅扩散功能（可选），需要增加--use_diff 参数，比如
 
 ```shell
-python preprocess_hubert_f0.py --f0_predictor dio --use_diff
+python -m train_pipeline.preprocess_hubert_f0 --f0_predictor dio --use_diff
 ```
 
 **加速预处理**
 如若您的数据集比较大，可以尝试添加`--num_processes`参数：
 ```shell
-python preprocess_hubert_f0.py --f0_predictor dio --use_diff --num_processes 8
+python -m train_pipeline.preprocess_hubert_f0 --f0_predictor dio --use_diff --num_processes 8
 ```
 所有的Workers会被自动分配到多个线程上
 
 执行完以上步骤后 dataset 目录便是预处理完成的数据，可以删除 dataset_raw 文件夹了
 
-## 🏋️‍ 训练
+## 🏋️‍ 训练（底层脚本参考）
 
 ### 主模型训练
 
 ```shell
-python train.py -c configs/config.json -m 44k
+python -m train_pipeline.train -c configs/config.json -m 44k
 ```
 
 ### 扩散模型（可选）
@@ -358,18 +474,19 @@ python train.py -c configs/config.json -m 44k
 尚若需要浅扩散功能，需要训练扩散模型，扩散模型训练方法为：
 
 ```shell
-python train_diff.py -c configs/diffusion.yaml
+python -m train_pipeline.train_diff -c configs/diffusion.yaml
 ```
 
 模型训练结束后，模型文件保存在`logs/44k`目录下，扩散模型在`logs/44k/diffusion`下
 
-## 🤖 推理
+## 🤖 推理（底层脚本参考）
 
-使用 [inference_main.py](inference_main.py)
+如果你使用当前仓库改造版，优先使用 [app_infer.py](app_infer.py)。  
+下面这部分是 [services/inference_main.py](services/inference_main.py) 的命令行参考。
 
 ```shell
 # 例
-python inference_main.py -m "logs/44k/G_30400.pth" -c "configs/config.json" -n "君の知らない物語-src.wav" -t 0 -s "nen"
+python -m services.inference_main -m "logs/44k/G_30400.pth" -c "configs/config.json" -n "君の知らない物語-src.wav" -t 0 -s "nen"
 ```
 
 必填项部分：
@@ -423,8 +540,8 @@ python inference_main.py -m "logs/44k/G_30400.pth" -c "configs/config.json" -n "
   + 执行`python cluster/train_cluster.py`，模型的输出会在`logs/44k/kmeans_10000.pt`
   + 聚类模型目前可以使用 gpu 进行训练，执行`python cluster/train_cluster.py --gpu`
 + 推理过程：
-  + `inference_main.py`中指定`cluster_model_path` 为模型输出文件，留空则默认为`logs/44k/kmeans_10000.pt`
-  + `inference_main.py`中指定`cluster_infer_ratio`，`0`为完全不使用聚类，`1`为只使用聚类，通常设置`0.5`即可
+  + `services/inference_main.py`中指定`cluster_model_path` 为模型输出文件，留空则默认为`logs/44k/kmeans_10000.pt`
+  + `services/inference_main.py`中指定`cluster_infer_ratio`，`0`为完全不使用聚类，`1`为只使用聚类，通常设置`0.5`即可
 
 ### 特征检索
 
@@ -434,33 +551,33 @@ python inference_main.py -m "logs/44k/G_30400.pth" -c "configs/config.json" -n "
   首先需要在生成 hubert 与 f0 后执行：
 
 ```shell
-python train_index.py -c configs/config.json
+python -m train_pipeline.train_index -c configs/config.json
 ```
 
 模型的输出会在`logs/44k/feature_and_index.pkl`
 
 + 推理过程：
   + 需要首先指定`--feature_retrieval`，此时聚类方案会自动切换到特征检索方案
-  + `inference_main.py`中指定`cluster_model_path` 为模型输出文件，留空则默认为`logs/44k/feature_and_index.pkl`
-  + `inference_main.py`中指定`cluster_infer_ratio`，`0`为完全不使用特征检索，`1`为只使用特征检索，通常设置`0.5`即可
+  + `services/inference_main.py`中指定`cluster_model_path` 为模型输出文件，留空则默认为`logs/44k/feature_and_index.pkl`
+  + `services/inference_main.py`中指定`cluster_infer_ratio`，`0`为完全不使用特征检索，`1`为只使用特征检索，通常设置`0.5`即可
 
 
 ## 🗜️ 模型压缩
 
 生成的模型含有继续训练所需的信息。如果确认不再训练，可以移除模型中此部分信息，得到约 1/3 大小的最终模型。
 
-使用 [compress_model.py](compress_model.py)
+使用 [tools/compress_model.py](tools/compress_model.py)
 
 ```shell
 # 例
-python compress_model.py -c="configs/config.json" -i="logs/44k/G_30400.pth" -o="logs/44k/release.pth"
+python -m tools.compress_model -c="configs/config.json" -i="logs/44k/G_30400.pth" -o="logs/44k/release.pth"
 ```
 
 ## 👨‍🔧 声线混合
 
 ### 静态声线混合
 
-**参考`webUI.py`文件中，小工具/实验室特性的静态声线融合。**
+**参考`app_infer.py`文件中，小工具/实验室特性的静态声线融合。**
 
 介绍：该功能可以将多个声音模型合成为一个声音模型（多个模型参数的凸组合或线性组合），从而制造出现实中不存在的声线
 **注意：**
@@ -492,13 +609,13 @@ python compress_model.py -c="configs/config.json" -i="logs/44k/G_30400.pth" -o="
 
 ## 📤 Onnx 导出
 
-使用 [onnx_export.py](onnx_export.py)
+使用 [tools/onnx_export.py](tools/onnx_export.py)
 
 + 新建文件夹：`checkpoints` 并打开
 + 在`checkpoints`文件夹中新建一个文件夹作为项目文件夹，文件夹名为你的项目名称，比如`aziplayer`
 + 将你的模型更名为`model.pth`，配置文件更名为`config.json`，并放置到刚才创建的`aziplayer`文件夹下
-+ 将 [onnx_export.py](onnx_export.py) 中`path = "NyaruTaffy"` 的 `"NyaruTaffy"` 修改为你的项目名称，`path = "aziplayer" (onnx_export_speaker_mix，为支持角色混合的 onnx 导出）`
-+ 运行 [onnx_export.py](onnx_export.py)
++ 将 [tools/onnx_export.py](tools/onnx_export.py) 中`path = "NyaruTaffy"` 的 `"NyaruTaffy"` 修改为你的项目名称，`path = "aziplayer" (onnx_export_speaker_mix，为支持角色混合的 onnx 导出）`
++ 运行 `python -m tools.onnx_export`
 + 等待执行完毕，在你的项目文件夹下会生成一个`model.onnx`，即为导出的模型
 
 注意：Hubert Onnx 模型请使用 MoeSS 提供的模型，目前无法自行导出（fairseq 中 Hubert 有不少 onnx 不支持的算子和涉及到常量的东西，在导出时会报错或者导出的模型输入输出 shape 和结果都有问题）

@@ -1,7 +1,11 @@
+from path_utils import get_contentvec_hf_path
+
+
 class SpeechEncoder(object):
-    def __init__(self, vec_path="pretrain/checkpoint_best_legacy_500.pt", device=None):
+    def __init__(self, vec_path=None, device=None):
         self.model = None  # This is Model
         self.hidden_dim = 768
+        self.vec_path = str(get_contentvec_hf_path()) if vec_path is None else vec_path
         pass
 
 
