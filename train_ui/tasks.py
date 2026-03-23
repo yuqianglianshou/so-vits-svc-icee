@@ -8,8 +8,10 @@
 页面入口只需要把当前状态对象和少量回调传进来，就能复用这些能力。
 """
 
+import json
 import os
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -33,11 +35,72 @@ from train_ui.paths import (
 )
 from train_ui.workspace import count_raw_dataset_wavs
 
+WINDOWS_NEW_PROCESS_GROUP = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+
+
+def _find_available_local_port(default_port: int, max_tries: int = 50) -> int:
+    for offset in range(max_tries):
+        port = default_port + offset
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                sock.bind(("127.0.0.1", port))
+                return port
+            except OSError:
+                continue
+    raise OSError(f"Unable to find an available port in {default_port}-{default_port + max_tries - 1}.")
+
+
+def _assign_train_port(model_name: str, default_port: int = 8001) -> int:
+    config_path = model_config_path(model_name)
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    chosen_port = _find_available_local_port(default_port)
+    config.setdefault("train", {})["port"] = str(chosen_port)
+    config_path.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
+    return chosen_port
+
 
 def _task_running(active_task: dict):
     proc = active_task["proc"]
     thread = active_task["thread"]
     return (proc is not None and proc.poll() is None) or (thread is not None and thread.is_alive())
+
+
+def _spawn_popen(cmd: list[str], log_file):
+    kwargs = {
+        "cwd": ROOT,
+        "stdout": log_file,
+        "stderr": subprocess.STDOUT,
+    }
+    if os.name == "nt":
+        kwargs["creationflags"] = WINDOWS_NEW_PROCESS_GROUP
+    else:
+        kwargs["start_new_session"] = True
+    return subprocess.Popen(cmd, **kwargs)
+
+
+def _terminate_process_tree(proc):
+    if proc is None or proc.poll() is not None:
+        return
+    if os.name == "nt":
+        try:
+            proc.send_signal(signal.CTRL_BREAK_EVENT)
+            proc.wait(timeout=3)
+            return
+        except Exception:
+            pass
+        subprocess.run(
+            ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+            cwd=ROOT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        return
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except Exception:
+        proc.terminate()
 
 
 def _running_conflict_response(active_task: dict, task_runtime_text_fn: Callable[[], str], tail_log_fn: Callable[[Path], str]):
@@ -84,13 +147,7 @@ def start_pipeline(
 
                 append_pipeline_log_fn(log_path, f"[Pipeline] 开始 {task_stage_labels.get(task_name, task_name)}")
                 log_file = log_path.open("a", encoding="utf-8")
-                proc = subprocess.Popen(
-                    cmd,
-                    cwd=ROOT,
-                    stdout=log_file,
-                    stderr=subprocess.STDOUT,
-                    start_new_session=True,
-                )
+                proc = _spawn_popen(cmd, log_file)
                 set_active_task_fn(task_name, cmd, log_path, proc=proc, pipeline_name=pipeline_name)
 
                 if not wait_for_exit:
@@ -140,13 +197,7 @@ def start_task(
 
     log_path = task_log_dir / f"{task_name}_{int(time.time())}.log"
     log_file = log_path.open("w", encoding="utf-8")
-    proc = subprocess.Popen(
-        cmd,
-        cwd=ROOT,
-        stdout=log_file,
-        stderr=subprocess.STDOUT,
-        start_new_session=True,
-    )
+    proc = _spawn_popen(cmd, log_file)
     active_task["thread"] = None
     active_task["pipeline_name"] = None
     active_task["stop_requested"] = False
@@ -172,15 +223,7 @@ def stop_task(
     if (proc is None or proc.poll() is not None) and not (thread is not None and thread.is_alive()):
         return "当前没有可停止的任务。", task_runtime_text_fn(), tail_log_fn(active_task["log_path"])
     active_task["stop_requested"] = True
-    try:
-        if proc is not None and proc.poll() is None:
-            if os.name == "nt":
-                proc.send_signal(signal.CTRL_BREAK_EVENT)
-            else:
-                os.killpg(proc.pid, signal.SIGTERM)
-    except Exception:
-        if proc is not None:
-            proc.terminate()
+    _terminate_process_tree(proc)
     return f"已发送停止信号：{active_task['pipeline_name'] or current_stage_label_fn()}", task_runtime_text_fn(), tail_log_fn(active_task["log_path"])
 
 
@@ -271,6 +314,7 @@ def launch_train(model_name: str, auto_batch_probe: bool = False, *, active_task
     """启动第 4 步：主模型训练。"""
     model_name = sanitize_model_name(model_name)
     ensure_runtime_base_models(model_name)
+    _assign_train_port(model_name)
     train_cmd = [
         sys.executable,
         "-m",

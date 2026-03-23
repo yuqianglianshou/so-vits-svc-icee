@@ -5,6 +5,7 @@ from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import cpu_count
 
 import librosa
+import numpy as np
 from rich.progress import track
 from scipy.io import wavfile
 
@@ -69,8 +70,8 @@ def process_all_speakers():
             if os.path.isdir(spk_dir):
                 print(spk_dir)
                 futures = [executor.submit(process, (spk_dir, i, args)) for i in os.listdir(spk_dir) if i.endswith("wav")]
-                for _ in track(concurrent.futures.as_completed(futures), total=len(futures), description="resampling:"):
-                    pass
+                for future in track(concurrent.futures.as_completed(futures), total=len(futures), description="resampling:"):
+                    future.result()
 
 
 if __name__ == "__main__":

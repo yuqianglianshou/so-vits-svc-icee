@@ -10,10 +10,23 @@ from pathlib import Path
 
 
 def resolve_uploaded_path(file_obj):
-    """把 Gradio 文件值统一转换成可用的本地路径字符串。"""
+    """把单个 Gradio 文件值统一转换成可用的本地路径字符串。"""
     if file_obj is None:
         return ""
+    if isinstance(file_obj, list):
+        first_item = file_obj[0] if file_obj else None
+        return getattr(first_item, "name", first_item) if first_item else ""
     return getattr(file_obj, "name", file_obj)
+
+
+def resolve_uploaded_paths(file_obj):
+    """把单个或多个 Gradio 文件值统一转换成本地路径字符串列表。"""
+    if file_obj is None:
+        return []
+    if isinstance(file_obj, list):
+        return [getattr(item, "name", item) for item in file_obj if getattr(item, "name", item)]
+    resolved = getattr(file_obj, "name", file_obj)
+    return [resolved] if resolved else []
 
 
 def normalize_asset_key(asset_key, asset_registry):
@@ -139,11 +152,15 @@ def render_pretrain_asset_guide(root: Path, asset_key, asset_registry, rmvpe_pat
     asset = asset_registry[asset_key]
     status = pretrain_asset_state(asset_key, asset_registry, rmvpe_path, rmvpe_validator)
     links = " / ".join([f'<a href="{url}" target="_blank">{label}</a>' for label, url in asset["download_links"]])
+    extra_hint = ""
+    if asset_key == "contentvec_hf":
+        extra_hint = "<div>提示：`config.json` 如果打开成文本页，请右键链接并选择“另存为”。</div>"
     return (
         '<div style="font-size:14px; color:#5f5a52;">'
         f"<div><strong>{asset['label']}</strong> · {status}</div>"
         f"<div>作用：{asset['purpose']}</div>"
         f"<div>目标位置：{render_pretrain_target(root, asset)}</div>"
         f"<div>下载：{links}</div>"
+        f"{extra_hint}"
         "</div>"
     )

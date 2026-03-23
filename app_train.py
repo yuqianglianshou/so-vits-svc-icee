@@ -74,6 +74,7 @@ from train_ui.pretrain import (
     render_pretrain_asset_guide as render_pretrain_asset_guide_html,
     render_pretrain_status as render_pretrain_status_html,
     resolve_uploaded_path,
+    resolve_uploaded_paths,
 )
 from train_ui.workspace import (
     count_raw_dataset_wavs,
@@ -157,11 +158,12 @@ PRETRAIN_ASSETS = {
     "contentvec_hf": {
         "label": "ContentVec HF 模型目录 contentvec_hf/",
         "target": ENCODER_DIR / "contentvec_hf",
-        "accepted_names": {"contentvec_hf.zip"},
-        "file_types": [".zip"],
+        "accepted_names": {"contentvec_hf.zip", "config.json", "model.safetensors"},
+        "file_types": [".zip", ".json", ".safetensors"],
         "required_files": ["config.json", "model.safetensors"],
         "download_links": [
-            ("当前锁定来源", "https://huggingface.co/lengyue233/content-vec-best"),
+            ("config.json 直链", "https://huggingface.co/lengyue233/content-vec-best/resolve/ab04aa7067b99ee05cc82499bc64916b980a1967/config.json"),
+            ("model.safetensors 直链", "https://huggingface.co/lengyue233/content-vec-best/resolve/60a4eafc5775c9ff1f813fa544c0c8d3099898f2/model.safetensors"),
         ],
         "purpose": "ContentVec 用来提取语音内容特征。当前项目已固定使用 Transformers/HF 路线，本地目录需包含 config.json 和 model.safetensors。",
         "is_archive": True,
@@ -257,16 +259,14 @@ def pretrain_file_update(asset_key):
 def import_pretrain_asset(asset_key, uploaded_file):
     asset_key = normalize_asset_key(asset_key, PRETRAIN_ASSETS)
     asset = PRETRAIN_ASSETS[asset_key]
-    source_path_str = resolve_uploaded_path(uploaded_file)
-    if not source_path_str:
+    source_path_list = [Path(path_str) for path_str in resolve_uploaded_paths(uploaded_file)]
+    if not source_path_list:
         return render_pretrain_asset_guide(asset_key), render_pretrain_status(), gr.update(value=None)
-
-    source_path = Path(source_path_str)
-    if not source_path.exists():
+    if any(not source_path.exists() for source_path in source_path_list):
         return render_pretrain_asset_guide(asset_key), render_pretrain_status(), gr.update(value=None)
 
     allowed_types = {suffix.lower() for suffix in asset.get("file_types", [])}
-    if allowed_types and source_path.suffix.lower() not in allowed_types:
+    if allowed_types and any(source_path.suffix.lower() not in allowed_types for source_path in source_path_list):
         allowed = "、".join(sorted(allowed_types))
         return (
             render_pretrain_asset_guide(asset_key),
@@ -274,8 +274,20 @@ def import_pretrain_asset(asset_key, uploaded_file):
             gr.update(value=None),
         )
 
-    if source_path.name not in asset["accepted_names"]:
+    if any(source_path.name not in asset["accepted_names"] for source_path in source_path_list):
         accepted = "、".join(sorted(asset["accepted_names"]))
+        return render_pretrain_asset_guide(asset_key), render_pretrain_status(), gr.update(value=None)
+
+    if asset_key == "contentvec_hf":
+        target_dir = asset["target"]
+        target_dir.mkdir(parents=True, exist_ok=True)
+        if len(source_path_list) == 1 and source_path_list[0].suffix.lower() == ".zip":
+            with zipfile.ZipFile(source_path_list[0], "r") as zf:
+                zf.extractall(target_dir)
+        else:
+            for source_path in source_path_list:
+                if source_path.name in {"config.json", "model.safetensors"}:
+                    shutil.copyfile(source_path, target_dir / source_path.name)
         return render_pretrain_asset_guide(asset_key), render_pretrain_status(), gr.update(value=None)
 
     zip_targets = {
@@ -284,6 +296,7 @@ def import_pretrain_asset(asset_key, uploaded_file):
         "sovits_d0": {"D_0.pth"},
         "diffusion_model_0": {"model_0.pt"},
     }
+    source_path = source_path_list[0]
 
     if asset_key in zip_targets and source_path.suffix.lower() == ".zip":
         asset["target"].parent.mkdir(parents=True, exist_ok=True)
@@ -1786,6 +1799,7 @@ with gr.Blocks(
                     pretrain_asset_guide = gr.HTML(render_pretrain_asset_guide("contentvec_hf"))
                     pretrain_asset_file = gr.File(
                         label="选择本地文件",
+                        file_count="multiple",
                         type="filepath",
                         file_types=PRETRAIN_ASSETS["contentvec_hf"].get("file_types"),
                     )

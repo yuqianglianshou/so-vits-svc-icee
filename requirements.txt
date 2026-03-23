@@ -3,70 +3,75 @@
 setuptools==68.2.2; platform_system == "Darwin"
 
 # WebUI / API
-# ffmpeg-python: 调用本机 ffmpeg，处理音频/视频转换命令
+# ffmpeg-python: invoke local ffmpeg for audio/video conversion commands
 ffmpeg-python
-# Flask / Flask_Cors: 保留给旧版 API 与兼容接口
+# Flask / Flask_Cors: kept for legacy API and compatibility routes
 Flask
 Flask_Cors
-# Gradio: 当前训练页 / 推理页主 UI 框架
+# Gradio: main UI framework for training and inference pages
+# FastAPI / Starlette are pinned to avoid Gradio 4.44.1 breakage with newer Starlette 1.x.
 gradio==4.44.1
-# huggingface_hub: 下载/解析部分模型与依赖资源
+fastapi==0.112.2
+starlette==0.38.6
+# Jinja2 is kept in the Gradio-supported major line for template rendering.
+jinja2==3.1.6
+# huggingface_hub: download and resolve some model assets and dependencies
 huggingface_hub==0.36.2
 
 # Core numerical / audio stack
-# numpy / scipy: 数值计算和信号处理基础
+# numpy / scipy: core numerical and signal-processing stack
 numpy==1.23.5
-# numba / llvmlite: librosa 等音频处理加速依赖
+# numba / llvmlite: acceleration dependencies for librosa and related audio tooling
 numba==0.59.1
 llvmlite==0.42.0
-# pyworld / praat-parselmouth: 音高相关处理
+# pyworld / praat-parselmouth: pitch-related processing
 pyworld
 scipy==1.10.0
-# SoundFile / librosa: wav 读写、重采样、特征处理
+# SoundFile / librosa: wav I/O, resampling, and feature extraction
 SoundFile==0.12.1
 librosa==0.9.1
-# soxr: transformers 音频模型导入链的重采样依赖
+# soxr: resampling dependency used by the transformers audio import path
 soxr
 praat-parselmouth
-# scikit-maad: 音频分析辅助库
+# scikit-maad: helper library for audio analysis
 scikit-maad
-# faiss-cpu: 特征索引 / 检索增强
+# faiss-cpu: feature indexing and retrieval augmentation
 faiss-cpu
 
 # PyTorch stack
-# torch / torchaudio: 训练、推理、音频张量处理主依赖
+# torch / torchaudio: primary dependencies for training, inference, and audio tensors
 torch
 torchaudio
-# torchcrepe: 可选 F0 提取器 crepe 的 PyTorch 实现
+# torchcrepe: PyTorch implementation of the optional crepe F0 extractor
 torchcrepe
 
 # Training / inference dependencies
-# transformers: 当前 ContentVec/HF 路线与部分模型工具依赖
+# transformers: current ContentVec/HF path and related model tooling
 transformers
-# einops / local_attention: 模型结构中的张量重排与注意力模块
+# einops / local_attention: tensor reshaping and attention modules used by the model
 einops
 local_attention
 
 # Utilities
-# tqdm / rich / loguru: 进度、终端展示、日志
+# tqdm / rich / loguru: progress, terminal rendering, and logging
 tqdm
 rich
 loguru
-# tensorboard: 训练监控
+# tensorboard: training monitoring
 tensorboard
-# edge_tts / langdetect: 推理页语音和语言相关能力
+# edge_tts / langdetect: speech and language helpers for the inference page
 edge_tts
 langdetect
-# pyyaml: 读写配置文件
+# pyyaml: configuration file I/O
 pyyaml
-# pynvml: GPU 状态查询
+# pynvml: GPU status queries
 pynvml
 
 # Optional ONNX export toolchain
-# onnx / onnxoptimizer / onnxsim: 仅在需要导出 / 优化 ONNX 模型时再安装
+# onnx / onnxoptimizer / onnxsim: install only when exporting or optimizing ONNX models
 # onnx
 # onnxoptimizer
 # onnxsim; platform_system != "Darwin"
-# ONNX Runtime: 保留给现有 ONNX 推理路径
+# ONNX Runtime: retained for the existing ONNX inference path
 onnxruntime; platform_system != "Windows"
 onnxruntime-gpu; platform_system == "Windows"
