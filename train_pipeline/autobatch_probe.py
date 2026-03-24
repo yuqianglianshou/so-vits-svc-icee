@@ -38,6 +38,12 @@ def parse_args():
     )
     parser.add_argument("--max-batch-size", type=int, default=64, help="探测上限")
     parser.add_argument("--max-trials", type=int, default=6, help="最多探测次数")
+    parser.add_argument(
+        "--safety-factor",
+        type=float,
+        default=0.75,
+        help="推荐 batch size 的安全系数；1.0 表示直接使用极限可用值。",
+    )
     return parser.parse_args()
 
 
@@ -201,6 +207,18 @@ def generate_candidate_batch_sizes(start_batch_size, max_batch_size, max_trials)
     return candidates
 
 
+def apply_safety_margin(max_supported_batch_size, safety_factor):
+    """把极限可用 batch size 转成更适合日常使用的推荐值。"""
+    if max_supported_batch_size is None:
+        return None
+    recommended = int(max_supported_batch_size * safety_factor)
+    if recommended < 1:
+        return 1
+    if recommended > max_supported_batch_size:
+        return max_supported_batch_size
+    return recommended
+
+
 def main():
     args = parse_args()
     if not torch.cuda.is_available():
@@ -224,13 +242,17 @@ def main():
             continue
         break
 
+    recommended_batch_size = apply_safety_margin(last_success, args.safety_factor)
+
     output = {
         "status": "ok" if last_success is not None else "failed",
         "config": str(Path(args.config)),
         "tested_device": str(device),
         "start_batch_size": start_batch_size,
         "max_batch_size": args.max_batch_size,
-        "recommended_batch_size": last_success,
+        "max_supported_batch_size": last_success,
+        "safety_factor": args.safety_factor,
+        "recommended_batch_size": recommended_batch_size,
         "trials": trials,
     }
     print(json.dumps(output, ensure_ascii=False, indent=2))

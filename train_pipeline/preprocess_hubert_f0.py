@@ -224,7 +224,13 @@ if __name__ == "__main__":
 
     if use_diff:
         logger.info("Mel extractor will be initialized per worker process.")
-    filenames = glob(f"{args.in_dir}/*/*.wav", recursive=True)  # [:10]
+    filenames = [
+        path.replace("\\", "/")
+        for speaker in glob(f"{args.in_dir}/*", recursive=False)
+        if os.path.isdir(speaker)
+        for path in glob(f"{speaker}/*", recursive=False)
+        if os.path.isfile(path) and os.path.splitext(path)[1].lower() == ".wav"
+    ]  # [:10]
     shuffle(filenames)
     mp.set_start_method("spawn", force=True)
 

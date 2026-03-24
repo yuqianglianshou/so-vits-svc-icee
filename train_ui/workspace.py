@@ -11,6 +11,13 @@ from pathlib import Path
 from train_ui.text import render_dataset_import_result
 
 
+def _wav_files_in_dir(base_dir: Path):
+    """返回目录下大小写不敏感识别到的 wav 文件。"""
+    if not base_dir.exists():
+        return []
+    return sorted([path for path in base_dir.iterdir() if path.is_file() and path.suffix.lower() == ".wav"])
+
+
 def format_timestamp(ts) -> str:
     """把工作区里记录的时间戳格式化成页面展示文本。"""
     try:
@@ -29,7 +36,7 @@ def count_training_wavs(base_dir: Path):
     speakers = [p for p in base_dir.iterdir() if p.is_dir()]
     wavs = 0
     for speaker in speakers:
-        wavs += len(list(speaker.glob("*.wav")))
+        wavs += len(_wav_files_in_dir(speaker))
     return len(speakers), wavs
 
 
@@ -37,7 +44,7 @@ def count_raw_dataset_wavs(base_dir: Path):
     """统计原始语音数据目录直接包含的 wav 数量。"""
     if not base_dir.exists() or not base_dir.is_dir():
         return 0, 0
-    wavs = len(list(base_dir.glob("*.wav")))
+    wavs = len(_wav_files_in_dir(base_dir))
     return (1 if wavs > 0 else 0), wavs
 
 
@@ -90,7 +97,7 @@ def render_dataset_file_list(root: Path, dataset_dir: Path):
             f'{dataset_dir.relative_to(root).as_posix()} 不存在。'
             '</div>'
         )
-    wav_files = sorted([path.name for path in dataset_dir.glob("*.wav")])
+    wav_files = [path.name for path in _wav_files_in_dir(dataset_dir)]
     if not wav_files:
         return (
             '<div class="dataset-files-empty">'

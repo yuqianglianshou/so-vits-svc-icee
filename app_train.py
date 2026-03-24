@@ -1065,7 +1065,7 @@ def prepare_delete_dataset(dataset_name: str):
             gr.update(),
             gr.update(visible=False),
         )
-    wav_count = len(list(dataset_dir.glob("*.wav")))
+    wav_count = len([path for path in dataset_dir.iterdir() if path.is_file() and path.suffix.lower() == ".wav"])
     message = (
         f"确认删除：{dataset_dir.relative_to(ROOT).as_posix()}\n\n"
         f"该目录下共有 {wav_count} 个 wav 文件。\n"
@@ -1324,11 +1324,35 @@ def extract_log_highlights(path: Path, max_lines: int = 30):
     return "".join(matched[-max_lines:])
 
 
+def render_auto_batch_probe_summary(path: Path):
+    """显示自动 batch size 的极限值和实际推荐值。"""
+    if path is None or not path.exists():
+        return "当前还没有自动 batch size 结果。"
+
+    with path.open("r", encoding="utf-8", errors="ignore") as f:
+        content = f.read()
+
+    max_supported_matches = re.findall(r"极限每卡 batch size：(\d+)", content)
+    recommended_matches = re.findall(r"推荐值：(\d+)", content)
+
+    if max_supported_matches and recommended_matches:
+        return (
+            f"极限每卡 batch size：{max_supported_matches[-1]}\n"
+            f"实际推荐 batch size：{recommended_matches[-1]}"
+        )
+
+    if "[AutoBatch]" in content:
+        return "自动 batch size 探测进行中，等待结果..."
+
+    return "当前还没有自动 batch size 结果。"
+
+
 def render_task_panel_snapshot(model_name: str, raw_dir: str, train_dir: str):
     log_path = ACTIVE_TASK["log_path"]
     return (
         render_stage_alert(model_name, raw_dir, train_dir),
         render_runtime_banner(),
+        render_auto_batch_probe_summary(log_path),
         current_task_feedback(model_name, raw_dir, train_dir),
         task_runtime_text(),
         render_log_highlights(log_path),
@@ -1391,6 +1415,7 @@ def refresh_text_dashboard(model_name: str, raw_dir: str, train_dir: str):
         render_stage_judgement(model_name, raw_dir, train_dir),
         render_preflight_check(model_name, raw_dir, train_dir),
         render_stage_alert(model_name, raw_dir, train_dir),
+        render_auto_batch_probe_summary(log_path),
         current_task_feedback(model_name, raw_dir, train_dir),
         task_runtime_text(),
         render_log_highlights(log_path),
@@ -1414,6 +1439,7 @@ def auto_refresh_dashboard(model_name: str, raw_dir: str, train_dir: str):
             '<div class="stage-check-row"><div class="stage-check-title"><span class="stage-dot" style="color:#c0392b;">●</span>自动刷新失败，请稍后重试或手动点击刷新任务状态。</div></div>',
             render_preflight_check(safe_model_name, safe_raw_dir, safe_train_dir),
             render_stage_alert(safe_model_name, safe_raw_dir, safe_train_dir),
+            "当前还没有自动 batch size 结果。",
             fallback_message,
             fallback_message,
             extract_log_highlights(log_path),
@@ -1885,7 +1911,13 @@ with gr.Blocks(
             auto_batch_probe_toggle = gr.Checkbox(
                 label="训练前自动探测 batch size（实验项）",
                 value=False,
-                info="勾选后会先用当前配置做单卡探测，再把推荐的每卡 batch size 用于正式训练。",
+                info="勾选后会先做单卡探测，再按安全余量折算成更适合日常使用的推荐 batch size 用于正式训练。",
+            )
+            auto_batch_probe_summary = gr.Textbox(
+                label="自动 batch size 结果",
+                value=render_auto_batch_probe_summary(ACTIVE_TASK["log_path"]),
+                lines=2,
+                interactive=False,
             )
             gr.Markdown("### 进阶训练")
             with gr.Row():
@@ -1917,6 +1949,7 @@ with gr.Blocks(
         preflight_check,
         stage_alert,
         runtime_banner,
+        auto_batch_probe_summary,
         task_message,
         task_status,
         task_log_highlights,
@@ -1941,6 +1974,7 @@ with gr.Blocks(
         stage_judgement,
         preflight_check,
         stage_alert,
+        auto_batch_probe_summary,
         task_message,
         task_status,
         task_log_highlights,
@@ -1955,6 +1989,7 @@ with gr.Blocks(
         [
             stage_alert,
             runtime_banner,
+            auto_batch_probe_summary,
             task_message,
             task_status,
             task_log_highlights,

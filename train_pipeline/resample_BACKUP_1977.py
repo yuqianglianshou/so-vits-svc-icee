@@ -69,9 +69,15 @@ def process_all_speakers():
             spk_dir = os.path.join(args.in_dir, speaker)
             if os.path.isdir(spk_dir):
                 print(spk_dir)
+<<<<<<< HEAD
                 futures = [executor.submit(process, (spk_dir, i, args)) for i in os.listdir(spk_dir) if i.endswith("wav")]
                 for future in track(concurrent.futures.as_completed(futures), total=len(futures), description="resampling:"):
                     future.result()
+=======
+                futures = [executor.submit(process, (spk_dir, i, args)) for i in os.listdir(spk_dir) if i.lower().endswith(".wav")]
+                for _ in track(concurrent.futures.as_completed(futures), total=len(futures), description="resampling:"):
+                    pass
+>>>>>>> a72e1103ac50aeffbec51588a9985b1336fc5d25
 
 
 if __name__ == "__main__":
