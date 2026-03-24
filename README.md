@@ -1,100 +1,113 @@
 <div align="center">
 <img alt="LOGO" src="https://avatars.githubusercontent.com/u/127122328?s=400&u=5395a98a4f945a3a50cb0cc96c2747505d190dbc&v=4" width="300" height="300" />
-  
+
 # SoftVC VITS Singing Voice Conversion
 
-[**English**](./README.md) | [**中文简体**](./README_zh_CN.md)
+[**English**](./README_en.md) | [**中文简体**](./README.md)
 
-[![Open In Colab](https://img.shields.io/badge/Colab-F9AB00?style=for-the-badge&logo=googlecolab&color=525252)](https://colab.research.google.com/github/svc-develop-team/so-vits-svc/blob/4.1-Stable/sovits4_for_colab.ipynb)
-[![Licence](https://img.shields.io/badge/LICENSE-AGPL3.0-green.svg?style=for-the-badge)](https://github.com/svc-develop-team/so-vits-svc/blob/4.1-Stable/LICENSE)
+[![在Google Cloab中打开](https://img.shields.io/badge/Colab-F9AB00?style=for-the-badge&logo=googlecolab&color=525252)](https://colab.research.google.com/github/svc-develop-team/so-vits-svc/blob/4.1-Stable/sovits4_for_colab.ipynb)
+[![LICENSE](https://img.shields.io/badge/LICENSE-AGPL3.0-green.svg?style=for-the-badge)](./LICENSE)
 
-This round of limited time update is coming to an end, the warehouse will enter the Archieve state, please know
 
 </div>
 
-> ✨ A studio that contains visible f0 editor, speaker mix timeline editor and other features (Where the Onnx models are used) : [MoeVoiceStudio](https://github.com/NaruseMioShirakana/MoeVoiceStudio)
 
-> ✨ A fork with a greatly improved user interface: [34j/so-vits-svc-fork](https://github.com/34j/so-vits-svc-fork)
+## 重要通知
 
-> ✨ A client supports real-time conversion: [w-okada/voice-changer](https://github.com/w-okada/voice-changer)
+这个项目是为了让开发者最喜欢的动画角色唱歌而开发的，任何涉及真人的东西都与开发者的意图背道而驰。
 
-**This project differs fundamentally from VITS, as it focuses on Singing Voice Conversion (SVC) rather than Text-to-Speech (TTS). In this project, TTS functionality is not supported, and VITS is incapable of performing SVC tasks. It's important to note that the models used in these two projects are not interchangeable or universally applicable.**
+## 声明
 
-## Announcement
+本项目为开源、离线的项目，SvcDevelopTeam 的所有成员与本项目的所有开发者以及维护者（以下简称贡献者）对本项目没有控制力。本项目的贡献者从未向任何组织或个人提供包括但不限于数据集提取、数据集加工、算力支持、训练支持、推理等一切形式的帮助；本项目的贡献者不知晓也无法知晓使用者使用该项目的用途。故一切基于本项目训练的 AI 模型和合成的音频都与本项目贡献者无关。一切由此造成的问题由使用者自行承担。
 
-The purpose of this project was to enable developers to have their beloved anime characters perform singing tasks. The developers' intention was to focus solely on fictional characters and avoid any involvement of real individuals, anything related to real individuals deviates from the developer's original intention.
+此项目完全离线运行，不能收集任何用户信息或获取用户输入数据。因此，这个项目的贡献者不知道所有的用户输入和模型，因此不负责任何用户输入。
 
-## Disclaimer
+本项目只是一个框架项目，本身并没有语音合成的功能，所有的功能都需要用户自己训练模型。同时，这个项目没有任何模型，任何二次分发的项目都与这个项目的贡献者无关。
 
-This project is an open-source, offline endeavor, and all members of SvcDevelopTeam, as well as other developers and maintainers involved (hereinafter referred to as contributors), have no control over the project. The contributors have never provided any form of assistance to any organization or individual, including but not limited to dataset extraction, dataset processing, computing support, training support, inference, and so on. The contributors do not and cannot be aware of the purposes for which users utilize the project. Therefore, any AI models and synthesized audio produced through the training of this project are unrelated to the contributors. Any issues or consequences arising from their use are the sole responsibility of the user.
+## 📏 使用规约
 
-This project is run completely offline and does not collect any user information or gather user input data. Therefore, contributors to this project are not aware of all user input and models and therefore are not responsible for any user input.
+# Warning：请自行解决数据集授权问题，禁止使用非授权数据集进行训练！任何由于使用非授权数据集进行训练造成的问题，需自行承担全部责任和后果！与仓库、仓库维护者、svc develop team 无关！
 
-This project serves as a framework only and does not possess speech synthesis functionality by itself. All functionalities require users to train the models independently. Furthermore, this project does not come bundled with any models, and any secondary distributed projects are independent of the contributors of this project.
+1. 本项目是基于学术交流目的建立，仅供交流与学习使用，并非为生产环境准备。
+2. 任何发布到视频平台的基于 sovits 制作的视频，都必须要在简介明确指明用于变声器转换的输入源歌声、音频，例如：使用他人发布的视频 / 音频，通过分离的人声作为输入源进行转换的，必须要给出明确的原视频、音乐链接；若使用是自己的人声，或是使用其他歌声合成引擎合成的声音作为输入源进行转换的，也必须在简介加以说明。
+3. 由输入源造成的侵权问题需自行承担全部责任和一切后果。使用其他商用歌声合成软件作为输入源时，请确保遵守该软件的使用条例，注意，许多歌声合成引擎使用条例中明确指明不可用于输入源进行转换！
+4. 禁止使用该项目从事违法行为与宗教、政治等活动，该项目维护者坚决抵制上述行为，不同意此条则禁止使用该项目。
+5. 继续使用视为已同意本仓库 README 所述相关条例，本仓库 README 已进行劝导义务，不对后续可能存在问题负责。
+6. 如果将此项目用于任何其他企划，请提前联系并告知本仓库作者，十分感谢。
 
-## 📏 Terms of Use
+## 📝 模型简介
 
-# Warning: Please ensure that you address any authorization issues related to the dataset on your own. You bear full responsibility for any problems arising from the usage of non-authorized datasets for training, as well as any resulting consequences. The repository and its maintainer, svc develop team, disclaim any association with or liability for the consequences. 
+当前仓库的主线目标是：
 
-1. This project is exclusively established for academic purposes, aiming to facilitate communication and learning. It is not intended for deployment in production environments.
-2. Any sovits-based video posted to a video platform must clearly specify in the introduction the input source vocals and audio used for the voice changer conversion, e.g., if you use someone else's video/audio and convert it by separating the vocals as the input source, you must give a clear link to the original video or music; if you use your own vocals or a voice synthesized by another voice synthesis engine as the input source, you must also state this in your introduction.
-3. You are solely responsible for any infringement issues caused by the input source and all consequences. When using other commercial vocal synthesis software as an input source, please ensure that you comply with the regulations of that software, noting that the regulations of many vocal synthesis engines explicitly state that they cannot be used to convert input sources!
-4. Engaging in illegal activities, as well as religious and political activities, is strictly prohibited when using this project. The project developers vehemently oppose the aforementioned activities. If you disagree with this provision, the usage of the project is prohibited.
-5. If you continue to use the program, you will be deemed to have agreed to the terms and conditions set forth in README and README has discouraged you and is not responsible for any subsequent problems.
-6. If you intend to employ this project for any other purposes, kindly contact and inform the maintainers of this repository in advance.
+- 离线高质量歌声音色转换
+- 以单说话人训练工作区为核心流程
+- 优先保证训练链和推理链的稳定、清晰、可维护
 
-## 📝 Model Introduction
+当前核心技术路线已经收敛为：
 
-The singing voice conversion model uses SoftVC content encoder to extract speech features from the source audio. These feature vectors are directly fed into VITS without the need for conversion to a text-based intermediate representation. As a result, the pitch and intonations of the original audio are preserved. Meanwhile, the vocoder was replaced with [NSF HiFiGAN](https://github.com/openvpi/DiffSinger/tree/refactor/modules/nsf_hifigan) to solve the problem of sound interruption.
+- 内容编码器：`vec768l12`
+  - 底层固定为 Transformers / HF ContentVec
+- F0 预测器：`rmvpe`
+- 训练前特征包：`*.train.pt`
+  - 统一打包 `audio / soft / f0 / uv / spec / volume`
+- 主入口：
+  - 训练：`app_train.py`
+  - 推理：`app_infer.py`
 
-### 🆕 4.1-Stable Version Update Content
+如果你是从原始 `4.1-Stable` 仓库迁移过来，需要注意：
 
-- Feature input is changed to the 12th Layer of [Content Vec](https://github.com/auspicious3000/contentvec) Transformer output, And compatible with 4.0 branches.
-- Update the shallow diffusion, you can use the shallow diffusion model to improve the sound quality.
-- Added Whisper-PPG encoder support
-- Added static/dynamic sound fusion
-- Added loudness embedding
-- Added Functionality of feature retrieval from [RVC](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI)
-  
-### 🆕 Questions about compatibility with the 4.0 model
+- 当前仓库不再把多种旧声音编码器作为主线能力保留在 README 中
+- 当前仓库不再依赖 fairseq 作为 ContentVec 主路径
+- 当前仓库默认假设训练音频已经由你在项目外完成响度 / 电平 / limiter 等处理
+- 当前仓库推荐按单说话人、单模型工作区方式训练
 
-- To support the 4.0 model and incorporate the speech encoder, you can make modifications to the `config.json` file. Add the `speech_encoder` field to the "model" section as shown below:
-
-```
-  "model": {
-    .........
-    "ssl_dim": 256,
-    "n_speakers": 200,
-    "speech_encoder":"vec256l9"
-  }
-```
-
-### 🆕 Shallow diffusion
+### 🆕 关于浅扩散
 ![Diagram](shadowdiffusion.png)
 
-## 💬 Python Version
+## 💬 关于 Python 版本问题
 
-Based on our current validation, the stable baseline for this customized repository is `Python 3.11.x`.
+根据当前这套改造版仓库的实际验证结果，稳定环境基线是 `Python 3.11.x`
 
-## 🧪 Environment Convention
+## 🧪 环境约定
 
-This project now standardizes on Python's built-in `venv`:
+当前项目统一使用 Python 自带的 `venv` 作为默认环境方案：
 
-- the virtual environment should be created at the project root as `.venv311`
-- Conda / Anaconda are no longer the default environment workflow
-- Windows batch launchers are expected to use `.venv311\\Scripts\\python.exe`
+- 虚拟环境固定创建在项目根目录下的 `.venv311`
+- 不再默认使用 Conda / Anaconda
+- Windows 批处理脚本也默认从 `.venv311\Scripts\python.exe` 启动
 
-Standard initialization:
+标准初始化方式：
 
 ```shell
 python -m venv .venv311
 ```
 
-## 🚀 Current Recommended Workflow
+## ✅ 提交前自检
 
-If you are using this repository in its current customized form, use the app-based workflow first instead of starting from the low-level scripts.
+如果你修改了入口页面、训练流程、推理流程或稳定性相关逻辑，建议提交前至少运行下面两条检查：
 
-### 1. Create the virtual environment and install dependencies
+```shell
+python3 scripts/verify_stability_fixes.py
+python3 scripts/verify_app_smoke.py
+```
+
+作用说明：
+
+- `verify_stability_fixes.py`
+  - 检查近期修过的稳定性问题是否回退
+  - 包括推理解包、说话人解析、DDP sampler、预处理并行逻辑
+
+- `verify_app_smoke.py`
+  - 检查当前两个入口页面的关键引用和流程约束是否仍然存在
+  - 包括：
+    - `app_train.py` 的训练前依赖与底模、数据集安全与一键流程
+    - `app_infer.py` 的质量模式与运行摘要
+
+## 🚀 当前仓库推荐工作流
+
+如果你使用的是当前这个仓库改造版，推荐优先按下面的方式使用，而不是直接从底层脚本开始。
+
+### 1. 创建虚拟环境并安装依赖
 
 ```shell
 python -m venv .venv311
@@ -108,184 +121,145 @@ python -m venv .venv311
 source .venv311/bin/activate
 
 pip install --upgrade pip setuptools wheel
-# Windows + NVIDIA GPU (recommended)
+# Windows + NVIDIA GPU（推荐）
 pip install -U torch torchaudio --index-url https://download.pytorch.org/whl/cu118
 pip install -r requirements.txt
 ```
 
-### 2. Train models
+### 2. 训练模型
 
-Recommended entrypoint:
+推荐入口：
 
 ```shell
 python app_train.py
 ```
 
-On Windows you can also double-click:
+Windows 也可以直接双击：
 
 - `启动训练界面.bat`
 
-The training page now starts with dependency preparation:
+训练页顶部负责：
 
-- checking training dependencies and base models
-- importing missing files into standard locations
-- preparing training dependencies and base models under `pretrain/encoders/`, `pretrain/vocoders/`, and `pretrain/base_models/44k/`
+- 检查训练前依赖与底模
+- 导入缺失文件到标准目录
+- 补齐 `pretrain/encoders/`、`pretrain/vocoders/` 和 `pretrain/base_models/44k/` 下的训练依赖与底模
 
-The current training console supports:
+当前训练页支持：
 
-- importing `dataset_raw/<speaker_dir>/*.wav`
-- suggesting safe directory names
-- deleting the current speaker directory
-- automatically binding the processed output dir to `dataset/44k/<speaker_dir>`
-- defaulting the model output name to the current speaker directory name
-- one-click execution for resample, config generation, feature extraction, and main model training
-- training checks, stage judgement, task status, logs, and warning/error hints
+- 导入 `dataset_raw/<说话人目录>/*.wav`
+- 自动建议目录名
+- 删除当前说话人目录
+- 自动同步处理后目录 `dataset/44k/<说话人目录>`
+- 默认把“模型输出名”同步成当前说话人目录名
+- 一键执行重采样、配置生成、特征提取、主模型训练
+- 查看训练前检查、阶段判断、任务状态、日志和错误提示
 
-The current recommended workflow is **single-speaker training**:
+当前推荐按 **单说话人模式** 使用：
 
-- one speaker directory per training run
-- one speaker should normally use one dedicated model output directory under `logs/<model_name>/`
-- when you want to train a second speaker, switch to that speaker directory and use a new model output name instead of mixing speakers into the same model
+- 一个说话人目录对应一轮训练
+- 一个说话人建议对应一个独立模型输出目录 `logs/<模型名>/`
+- 如果你要训练第二个说话人，不是把两个说话人混进一个模型，而是切换说话人目录并使用新的模型输出名
 
-### 3. Run inference
+### 3. 歌声转换
 
-Recommended entrypoint:
+推荐入口：
 
 ```shell
 python app_infer.py
 ```
 
-The current inference page supports:
+当前推理页支持：
 
-- loading the main model, quality-enhancement model, and timbre-enhancement file
-- switching quality modes
-- exporting a runtime summary
-- an offline high-quality singing-conversion workflow
+- 加载主模型、音质增强模型、音色增强文件
+- 高音质质量模式切换
+- 运行摘要导出
+- 面向离线高质量歌声转换
 
-### 4. When to use the legacy sections below
+### 4. 什么时候看下面的旧章节
 
-The remaining `dataset / preprocessing / training / inference` sections are still useful if you want to:
+下面保留的 `数据预处理 / 训练 / 推理` 章节，主要用于：
 
-- run low-level scripts directly
-- understand the underlying training pipeline
-- troubleshoot on a Windows + GPU machine via CLI
+- 直接调用底层脚本
+- 理解底层训练链路
+- 在 Windows + GPU 机器上做命令行排障
 
-## 📥 Pre-trained Model Files
+如果你只是正常使用当前仓库，优先使用：
 
-#### **Required**
+- `app_train.py`
+- `app_infer.py`
 
-**You need to select one encoder from the list below**
+## 📥 预先下载的模型文件
 
-##### **1. If using contentvec as speech encoder(recommended)**
+#### **必须项**
 
-`vec768l12` uses the current Transformers / HF ContentVec route.
+当前仓库只保留一条声音编码器主线：
 
-- ContentVec HF directory: `pretrain/encoders/contentvec_hf/`
-  - Required files:
-    - `config.json`
-    - `model.safetensors`
-  - Locked source currently used by this project:
-    - `lengyue233/content-vec-best`
+##### **ContentVec HF（当前唯一主线）**
 
-If the directory does not exist locally, the project can fall back to downloading from the locked Hugging Face source. For long-term stability, keeping the local directory is still recommended.
+- 编码器名称：`vec768l12`
+- 底层实现：Transformers / HF ContentVec
+- 本地目录：`pretrain/encoders/contentvec_hf/`
+- 目录内需要包含：
+  - `config.json`
+  - `model.safetensors`
+- 当前锁定来源：
+  - `lengyue233/content-vec-best`
 
-##### **2. If hubertsoft is used as the speech encoder**
-- soft vc hubert: [hubert-soft-0d54a1f4.pt](https://github.com/bshall/hubert/releases/download/v0.1/hubert-soft-0d54a1f4.pt)
-  - Place it under the `pretrain` directory
+如果本地目录不存在：
 
-##### **3. If whisper-ppg as the encoder**
-- download model at [medium.pt](https://openaipublic.azureedge.net/main/whisper/models/345ae4da62f9b3d59415adc60127b97c714f32e89e936602e85993674d08dcb1/medium.pt), the model fits `whisper-ppg`
-- or download model at [large-v2.pt](https://openaipublic.azureedge.net/main/whisper/models/81f7c96c852ee8fc832187b0132e569d6c3065a3252ed18e56effd0b6a73e524/large-v2.pt), the model fits `whisper-ppg-large`
-  - Place it under the `pretrain` directory
-  
-##### **4. If cnhubertlarge as the encoder**
-- download model at [chinese-hubert-large-fairseq-ckpt.pt](https://huggingface.co/TencentGameMate/chinese-hubert-large/resolve/main/chinese-hubert-large-fairseq-ckpt.pt)
-  - Place it under the `pretrain` directory
+- 运行时会优先尝试使用 Hugging Face 缓存 / 下载机制
+- 训练页也支持一键自动获取到本地目录
 
-##### **5. If dphubert as the encoder**
-- download model at [DPHuBERT-sp0.75.pth](https://huggingface.co/pyf98/DPHuBERT/resolve/main/DPHuBERT-sp0.75.pth)
-  - Place it under the `pretrain` directory
+为了长期稳定，仍建议优先保留本地目录。
 
-##### **6. If WavLM is used as the encoder**
-- download model at  [WavLM-Base+.pt](https://valle.blob.core.windows.net/share/wavlm/WavLM-Base+.pt?sv=2020-08-04&st=2023-03-01T07%3A51%3A05Z&se=2033-03-02T07%3A51%3A00Z&sr=c&sp=rl&sig=QJXmSJG9DbMKf48UDIU1MfzIro8HQOf3sqlNXiflY1I%3D), the model fits `wavlmbase+`
-  - Place it under the `pretrain` directory
+#### **可选项（强烈建议使用）**
 
-##### **7. If OnnxHubert/ContentVec as the encoder**
-- download model at [MoeSS-SUBModel](https://huggingface.co/NaruseMioShirakana/MoeSS-SUBModel/tree/main)
-  - Place it under the `pretrain` directory
++ 预训练底模文件：
+  + [G_0.pth（vec768l12）](https://huggingface.co/Sucial/so-vits-svc4.1-pretrain_model/blob/main/vec768l12/G_0.pth)
+  + [D_0.pth（vec768l12）](https://huggingface.co/Sucial/so-vits-svc4.1-pretrain_model/blob/main/vec768l12/D_0.pth)
+  + 放在`pretrain/base_models/44k`目录下
 
-#### **List of Encoders**
-- "vec768l12"
-- "vec256l9"
-- "vec256l9-onnx"
-- "vec256l12-onnx"
-- "vec768l9-onnx"
-- "vec768l12-onnx"
-- "hubertsoft-onnx"
-- "hubertsoft"
-- "whisper-ppg"
-- "cnhubertlarge"
-- "dphubert"
-- "whisper-ppg-large"
-- "wavlmbase+"
++ 扩散模型预训练底模文件：
+  + [model_0.pt（diffusion/768l12）](https://huggingface.co/Sucial/so-vits-svc4.1-pretrain_model/blob/main/diffusion/768l12/model_0.pt)
+  + 放在`pretrain/base_models/44k/diffusion`目录下
 
-#### **Optional(Strongly recommend)**
+训练开始时，程序会自动把这组底模同步到当前模型工作区目录，所以 `logs/<模型名>/` 主要表示训练产物目录，而不是长期存放底模的目录。
 
-- Pre-trained base model files:
-  - [G_0.pth (vec768l12)](https://huggingface.co/Sucial/so-vits-svc4.1-pretrain_model/blob/main/vec768l12/G_0.pth)
-  - [D_0.pth (vec768l12)](https://huggingface.co/Sucial/so-vits-svc4.1-pretrain_model/blob/main/vec768l12/D_0.pth)
-  - Place them under the `pretrain/base_models/44k` directory
+上面这组链接对应当前仓库默认的 `vec768l12` / HF ContentVec 路线，请不要与历史旧路线底模混用。
 
-- Diffusion pre-trained base model file:
-  - [model_0.pt (diffusion/768l12)](https://huggingface.co/Sucial/so-vits-svc4.1-pretrain_model/blob/main/diffusion/768l12/model_0.pt)
-  - Put it in the `pretrain/base_models/44k/diffusion` directory
+虽然底模一般不会引起什么版权问题，但还是请注意一下，比如事先询问作者，又或者作者在模型描述中明确写明了可行的用途
 
-At training start, the app will sync these base models into the runtime experiment directory `logs/44k/`. `logs/44k` is now mainly the output directory for training artifacts, not the long-term storage location for base models.
-
-These links match the current repository's default `vec768l12` / ContentVec route. Do not mix them with same-named files from other encoder folders such as `vec256l9`.
-
-While the pretrained model typically does not pose copyright concerns, it is essential to remain vigilant. It is advisable to consult with the author beforehand or carefully review the description to ascertain the permissible usage of the model. This helps ensure compliance with any specified guidelines or restrictions regarding its utilization.
-
-#### **Optional(Select as Required)**
+#### **可选项（根据情况选择）**
 
 ##### NSF-HIFIGAN
 
-If you are using the `NSF-HIFIGAN enhancer` or `shallow diffusion`, you will need to download the pre-trained NSF-HIFIGAN model.
+如果使用`NSF-HIFIGAN 增强器`或`浅层扩散`的话，需要下载预训练的 NSF-HIFIGAN 模型，如果不需要可以不下载
 
-- Pre-trained NSF-HIFIGAN Vocoder: [nsf_hifigan_20221211.zip](https://github.com/openvpi/vocoders/releases/download/nsf-hifigan-v1/nsf_hifigan_20221211.zip)
-  - Unzip and place the four files under the `pretrain/vocoders/nsf_hifigan` directory
++ 预训练的 NSF-HIFIGAN 声码器 ：[nsf_hifigan_20221211.zip](https://github.com/openvpi/vocoders/releases/download/nsf-hifigan-v1/nsf_hifigan_20221211.zip)
+  + 解压后，将四个文件放在`pretrain/vocoders/nsf_hifigan`目录下
 
 ```shell
 # nsf_hifigan
 wget -P pretrain/ https://github.com/openvpi/vocoders/releases/download/nsf-hifigan-v1/nsf_hifigan_20221211.zip
 unzip -od pretrain/vocoders/nsf_hifigan pretrain/nsf_hifigan_20221211.zip
-# Alternatively, you can manually download and place it in the pretrain/vocoders/nsf_hifigan directory
-# URL: https://github.com/openvpi/vocoders/releases/tag/nsf-hifigan-v1
+# 也可手动下载放在 pretrain/vocoders/nsf_hifigan 目录
+# 地址：https://github.com/openvpi/vocoders/releases/tag/nsf-hifigan-v1
 ```
 
 ##### RMVPE
 
-If you are using the `rmvpe` F0 Predictor, you will need to download the pre-trained RMVPE model.
+如果使用`rmvpe`F0预测器的话，需要下载预训练的 RMVPE 模型
 
-+ download model at [rmvpe.zip](https://github.com/yxlllc/RMVPE/releases/download/230917/rmvpe.zip), this weight is recommended.
-  + unzip `rmvpe.zip`，and rename the `model.pt` file to `rmvpe.pt` and place it under the `pretrain/encoders` directory.
++ 下载模型[rmvpe.zip](https://github.com/yxlllc/RMVPE/releases/download/230917/rmvpe.zip)，目前首推该权重。
+  + 解压缩`rmvpe.zip`，并将其中的`model.pt`文件改名为`rmvpe.pt`并放在`pretrain/encoders`目录下
+  
 
-- ~~download model at [rmvpe.pt](https://huggingface.co/datasets/ylzz1997/rmvpe_pretrain_model/resolve/main/rmvpe.pt)~~
-  - ~~Place it under the `pretrain/encoders` directory~~
 
-##### FCPE(Preview version)
 
-[FCPE(Fast Context-base Pitch Estimator)](https://github.com/CNChTu/MelPE) is a dedicated F0 predictor designed for real-time voice conversion and will become the preferred F0 predictor for sovits real-time voice conversion in the future.(The paper is being written)
+## 📊 数据集准备（底层脚本参考）
 
-If you are using the `fcpe` F0 Predictor, you will need to download the pre-trained FCPE model.
-
-- download model at [fcpe.pt](https://huggingface.co/datasets/ylzz1997/rmvpe_pretrain_model/resolve/main/fcpe.pt)
-  - Place it under the `pretrain` directory
-
-## 📊 Dataset Preparation (Low-level Script Reference)
-
-For the current customized repository, it is recommended to import speaker folders from `app_train.py`.  
-If you use the low-level CLI flow, the dataset structure is still the following:
+当前仓库推荐直接在 `app_train.py` 页面中导入说话人目录。  
+如果你走命令行底层流程，数据集结构仍然是下面这种：
 
 ```
 dataset_raw
@@ -298,9 +272,9 @@ dataset_raw
     ├───...
     └───xxx7-xxx007.wav
 ```
-There are no specific restrictions on the format of the name for each audio file (naming conventions such as `000001.wav` to `999999.wav` are also valid), but the file type must be `WAV``.
+对于每一个音频文件的名称并没有格式的限制（`000001.wav`~`999999.wav` 之类的命名方式也是合法的），不过文件类型必须是 `wav`。当前训练链对扩展名大小写不敏感，因此 `.wav`、`.WAV`、`.Wav` 都会被识别。
 
-You can customize the speaker's name as showed below:
+可以自定义说话人名称
 
 ```
 dataset_raw
@@ -310,291 +284,266 @@ dataset_raw
     └───25788785-20221210-200143-856_01_(Vocals)_0_0.wav
 ```
 
-## 🛠️ Preprocessing (Low-level Script Reference)
+## 🛠️ 数据预处理（底层脚本参考）
 
-### 0. Slice audio
+### 0. 音频切片
 
-To avoid video memory overflow during training or pre-processing, it is recommended to limit the length of audio clips. Cutting the audio to a length of "5s - 15s" is more recommended. Slightly longer times are acceptable, however, excessively long clips may cause problems such as `torch.cuda.OutOfMemoryError`.
+将音频切片至`5s - 15s`, 稍微长点也无伤大雅，实在太长可能会导致训练中途甚至预处理就爆显存
 
-To facilitate the slicing process, you can use [audio-slicer-GUI](https://github.com/flutydeer/audio-slicer) or [audio-slicer-CLI](https://github.com/openvpi/audio-slicer)
+可以使用 [audio-slicer-GUI](https://github.com/flutydeer/audio-slicer)、[audio-slicer-CLI](https://github.com/openvpi/audio-slicer)
 
-In general, only the `Minimum Interval` needs to be adjusted. For spoken audio, the default value usually suffices, while for singing audio, it can be adjusted to around `100` or even `50`, depending on the specific requirements.
+一般情况下只需调整其中的`Minimum Interval`，普通陈述素材通常保持默认即可，歌唱素材可以调整至`100`甚至`50`
 
-After slicing, it is recommended to remove any audio clips that are excessively long or too short.
+切完之后手动删除过长过短的音频
 
-**If you are using whisper-ppg encoder for training, the audio clips must shorter than 30s.**
 
-### 1. Resample to 44100Hz and mono
+### 1. 重采样至 44100Hz 单声道
 
 ```shell
 python -m train_pipeline.resample
 ```
 
-#### Cautions
+#### 注意
 
-Current `train_pipeline/resample.py` only trims silence and resamples audio. Loudness, gain staging, and limiter processing are no longer handled inside the project. Please finish those steps in your own audio workflow before training.
+当前 `train_pipeline/resample.py` 只负责裁剪静音和重采样，不再在项目内做响度、电平或限幅处理。训练音频的响度整理、增益控制和 limiter，请在进入项目之前由你自己的音频处理流程完成。
 
-### 2. Automatically split the dataset into training and validation sets, and generate configuration files.
+### 2. 自动划分训练集、验证集，以及自动生成配置文件
 
 ```shell
 python -m train_pipeline.preprocess_flist_config --speech_encoder vec768l12
 ```
 
-speech_encoder has the following options
+当前仓库中，`speech_encoder` 主线固定为：
 
-```
+```text
 vec768l12
-vec256l9
-hubertsoft
-whisper-ppg
-cnhubertlarge
-dphubert
-whisper-ppg-large
-wavlmbase+
 ```
 
-If the speech_encoder argument is omitted, the default value is `vec768l12`
+如果省略 `speech_encoder` 参数，默认值也是 `vec768l12`。
 
-**Use loudness embedding**
+**使用响度嵌入**
 
-Add `--vol_aug` if you want to enable loudness embedding:
+当前默认启用响度嵌入，通常建议保持开启。  
+如果你要做对照实验或明确希望关闭它，请增加 `--no_vol_aug` 参数，例如：
 
 ```shell
-python -m train_pipeline.preprocess_flist_config --speech_encoder vec768l12 --vol_aug
+python -m train_pipeline.preprocess_flist_config --speech_encoder vec768l12 --no_vol_aug
 ```
 
-After enabling loudness embedding, the trained model will match the loudness of the input source; otherwise, it will match the loudness of the training set.
+这里的“响度嵌入”指的是把 `volume` 包络作为模型输入特征；它不同于对原始训练音频直接做响度归一化。当前项目已经移除了 `resample.py` 中的内置音量归一化处理。
 
-#### You can modify some parameters in the generated config.json and diffusion.yaml
+#### 此时可以在生成的 config.json 与 diffusion.yaml 修改部分参数
 
-* `keep_ckpts`: Keep the the the number of previous models during training. Set to `0` to keep them all. Default is `3`.
+##### config.json
 
-* `all_in_mem`: Load all dataset to RAM. It can be enabled when the disk IO of some platforms is too low and the system memory is **much larger** than your dataset.
-  
-* `batch_size`: The amount of data loaded to the GPU for a single training session can be adjusted to a size lower than the GPU memory capacity.
+* `keep_ckpts`：训练时保留最后几个模型，`0`为保留所有，默认只保留最后`3`个
 
-* `vocoder_name`: Select a vocoder. The default is `nsf-hifigan`.
+* `all_in_mem`：加载所有数据集到内存中，某些平台的硬盘 IO 过于低下、同时内存容量 **远大于** 数据集体积时可以启用
+
+* `batch_size`：单次训练加载到 GPU 的数据量，调整到低于显存容量的大小即可
+
+* `vocoder_name` : 选择一种声码器，默认为`nsf-hifigan`.
 
 ##### diffusion.yaml
 
-* `cache_all_data`: Load all dataset to RAM. It can be enabled when the disk IO of some platforms is too low and the system memory is **much larger** than your dataset.
+* `cache_all_data`：加载所有数据集到内存中，某些平台的硬盘 IO 过于低下、同时内存容量 **远大于** 数据集体积时可以启用
 
-* `duration`: The duration of the audio slicing during training, can be adjusted according to the size of the video memory, **Note: this value must be less than the minimum time of the audio in the training set!**
+* `duration`：训练时音频切片时长，可根据显存大小调整，**注意，该值必须小于训练集内音频的最短时间！**
 
-* `batch_size`: The amount of data loaded to the GPU for a single training session can be adjusted to a size lower than the video memory capacity.
+* `batch_size`：单次训练加载到 GPU 的数据量，调整到低于显存容量的大小即可
 
-* `timesteps`: The total number of steps in the diffusion model, which defaults to 1000.
+* `timesteps` : 扩散模型总步数，默认为 1000.
 
-* `k_step_max`: Training can only train `k_step_max` step diffusion to save training time, note that the value must be less than `timesteps`, 0 is to train the entire diffusion model, **Note: if you do not train the entire diffusion model will not be able to use only_diffusion!**
+* `k_step_max` : 训练时可仅训练`k_step_max`步扩散以节约训练时间，注意，该值必须小于`timesteps`，0 为训练整个扩散模型，**注意，如果不训练整个扩散模型将无法使用仅扩散模型推理！**
 
-##### **List of Vocoders**
+##### **声码器列表**
 
 ```
 nsf-hifigan
 nsf-snake-hifigan
 ```
 
-### 3. Generate hubert and f0
+### 3. 生成内容特征与 f0
 
 ```shell
-python -m train_pipeline.preprocess_hubert_f0 --f0_predictor dio
+python -m train_pipeline.preprocess_hubert_f0 --f0_predictor rmvpe
 ```
 
-f0_predictor has the following options
+当前仓库主线固定使用 `rmvpe`。如果传入其他值，程序也会自动切回 `rmvpe`。
 
-```
-crepe
-dio
-pm
-harvest
-rmvpe
-fcpe
-```
-
-If the training set is too noisy,it is recommended to use `crepe` to handle f0
-
-If the f0_predictor parameter is omitted, the default value is `rmvpe`
-
-If you want shallow diffusion (optional), you need to add the `--use_diff` parameter, for example:
+尚若需要浅扩散功能（可选），需要增加--use_diff 参数，比如
 
 ```shell
-python -m train_pipeline.preprocess_hubert_f0 --f0_predictor dio --use_diff
+python -m train_pipeline.preprocess_hubert_f0 --f0_predictor rmvpe --use_diff
 ```
 
-**Speed Up preprocess**
+**加速预处理**
+如若您的数据集比较大，可以尝试添加`--num_processes`参数：
+```shell
+python -m train_pipeline.preprocess_hubert_f0 --f0_predictor rmvpe --use_diff --num_processes 8
+```
+所有的Workers会被自动分配到多个线程上
 
-If your dataset is pretty large,you can increase the param `--num_processes` like that:
+执行完以上步骤后，`dataset` 目录便是预处理完成的数据。当前主模型训练会依赖第 3 步生成的 `*.train.pt` 统一特征包；如果这些文件缺失，训练会提示你重新执行第 3 步。
+
+## 🏋️‍ 训练（底层脚本参考）
+
+### 主模型训练
 
 ```shell
-python -m train_pipeline.preprocess_hubert_f0 --f0_predictor dio --num_processes 8
+python -m train_pipeline.train -c logs/<模型名>/config.json -m <模型名>
 ```
-All the worker will be assigned to different GPU if you have more than one GPUs.
 
-After completing the above steps, the dataset directory will contain the preprocessed data, and the dataset_raw folder can be deleted.
+### 扩散模型（可选）
 
-## 🏋️‍ Training (Low-level Script Reference)
-
-### Sovits Model
+尚若需要浅扩散功能，需要训练扩散模型，扩散模型训练方法为：
 
 ```shell
-python -m train_pipeline.train -c configs/config.json -m 44k
+python -m train_pipeline.train_diff -c logs/<模型名>/diffusion.yaml
 ```
 
-### Diffusion Model (optional)
+模型训练结束后，模型文件保存在 `logs/<模型名>/` 目录下，扩散模型在 `logs/<模型名>/diffusion/` 下。
 
-If the shallow diffusion function is needed, the diffusion model needs to be trained. The diffusion model training method is as follows:
+## 🤖 推理（底层脚本参考）
+
+如果你使用当前仓库改造版，优先使用 [app_infer.py](app_infer.py)。  
+下面这部分是 [services/inference_main.py](services/inference_main.py) 的命令行参考。
 
 ```shell
-python -m train_pipeline.train_diff -c configs/diffusion.yaml
+# 例
+python -m services.inference_main -m "logs/<模型名>/G_30400.pth" -c "logs/<模型名>/config.json" -n "君の知らない物語-src.wav" -t 0 -s "<说话人名>"
 ```
 
-During training, the model files will be saved to `logs/44k`, and the diffusion model will be saved to `logs/44k/diffusion`
+必填项部分：
++ `-m` | `--model_path`：模型路径
++ `-c` | `--config_path`：配置文件路径
++ `-n` | `--clean_names`：wav 文件名列表，放在 raw 文件夹下
++ `-t` | `--trans`：音高调整，支持正负（半音）
++ `-s` | `--spk_list`：合成目标说话人名称
++ `-cl` | `--clip`：音频强制切片，默认 0 为自动切片，单位为秒/s
 
-## 🤖 Inference (Low-level Script Reference)
+可选项部分：部分具体见下一节
++ `-lg` | `--linear_gradient`：两段音频切片的交叉淡入长度，如果强制切片后出现人声不连贯可调整该数值，如果连贯建议采用默认值 0，单位为秒
++ `-f0p` | `--f0_predictor`：选择 F0 预测器，可选择 crepe,pm,dio,harvest,rmvpe,fcpe, 默认为 pm（注意：crepe 为原 F0 使用均值滤波器）
++ `-a` | `--auto_predict_f0`：语音转换自动预测音高，转换歌声时不要打开这个会严重跑调
++ `-cm` | `--cluster_model_path`：聚类模型或特征检索索引路径，留空则自动设为各方案模型的默认路径，如果没有训练聚类或特征检索则随便填
++ `-cr` | `--cluster_infer_ratio`：聚类方案或特征检索占比，范围 0-1，若没有训练聚类模型或特征检索则默认 0 即可
++ `-eh` | `--enhance`：是否使用 NSF_HIFIGAN 增强器，该选项对部分训练集少的模型有一定的音质增强效果，但是对训练好的模型有反面效果，默认关闭
++ `-shd` | `--shallow_diffusion`：是否使用浅层扩散，使用后可解决一部分电音问题，默认关闭，该选项打开时，NSF_HIFIGAN 增强器将会被禁止
++ `-usm` | `--use_spk_mix`：是否使用角色融合/动态声线融合
++ `-lea` | `--loudness_envelope_adjustment`：输入源响度包络替换输出响度包络融合比例，越靠近 1 越使用输出响度包络
++ `-fr` | `--feature_retrieval`：是否使用特征检索，如果使用聚类模型将被禁用，且 cm 与 cr 参数将会变成特征检索的索引路径与混合比例
 
-If you are using the current customized repository, prefer `app_infer.py`.  
-The section below is the CLI reference for `services/inference_main.py`.
+浅扩散设置：
++ `-dm` | `--diffusion_model_path`：扩散模型路径
++ `-dc` | `--diffusion_config_path`：扩散模型配置文件路径
++ `-ks` | `--k_step`：扩散步数，越大越接近扩散模型的结果，默认 100
++ `-od` | `--only_diffusion`：纯扩散模式，该模式不会加载 sovits 模型，以扩散模型推理
++ `-se` | `--second_encoding`：二次编码，浅扩散前会对原始音频进行二次编码，玄学选项，有时候效果好，有时候效果差
+
+## 🤔 可选项
+
+如果前面的效果已经满意，或者没看明白下面在讲啥，那后面的内容都可以忽略，不影响模型使用（这些可选项影响比较小，可能在某些特定数据上有点效果，但大部分情况似乎都感知不太明显）
+
+### 自动 f0 预测
+
+4.0 模型训练过程会训练一个 f0 预测器，对于语音转换可以开启自动音高预测，如果效果不好也可以使用手动的，但转换歌声时请不要启用此功能！！！会严重跑调！！
++ 在 inference_main 中设置 auto_predict_f0 为 true 即可
+
+### 聚类音色泄漏控制
+
+介绍：聚类方案可以减小音色泄漏，使得模型训练出来更像目标的音色（但其实不是特别明显），但是单纯的聚类方案会降低模型的咬字（会口齿不清）（这个很明显），本模型采用了融合的方式，可以线性控制聚类方案与非聚类方案的占比，也就是可以手动在"像目标音色" 和 "咬字清晰" 之间调整比例，找到合适的折中点
+
+使用聚类前面的已有步骤不用进行任何的变动，只需要额外训练一个聚类模型，虽然效果比较有限，但训练成本也比较低
+
++ 训练过程：
+  + 使用 cpu 性能较好的机器训练，据我的经验在腾讯云 6 核 cpu 训练每个 speaker 需要约 4 分钟即可完成训练
+  + 执行`python cluster/train_cluster.py`，模型的输出会在`logs/<模型名>/kmeans_10000.pt`
+  + 聚类模型目前可以使用 gpu 进行训练，执行`python cluster/train_cluster.py --gpu`
++ 推理过程：
+  + `services/inference_main.py`中指定`cluster_model_path` 为模型输出文件，留空则默认为`logs/<模型名>/kmeans_10000.pt`
+  + `services/inference_main.py`中指定`cluster_infer_ratio`，`0`为完全不使用聚类，`1`为只使用聚类，通常设置`0.5`即可
+
+### 特征检索
+
+介绍：跟聚类方案一样可以减小音色泄漏，咬字比聚类稍好，但会降低推理速度，采用了融合的方式，可以线性控制特征检索与非特征检索的占比，
+
++ 训练过程：
+  首先需要在生成 hubert 与 f0 后执行：
 
 ```shell
-# Example
-python -m services.inference_main -m "logs/44k/G_30400.pth" -c "configs/config.json" -n "君の知らない物語-src.wav" -t 0 -s "nen"
+python -m train_pipeline.train_index -c logs/<模型名>/config.json
 ```
 
-Required parameters:
-- `-m` | `--model_path`: path to the model.
-- `-c` | `--config_path`: path to the configuration file.
-- `-n` | `--clean_names`: a list of wav file names located in the `raw` folder.
-- `-t` | `--trans`: pitch shift, supports positive and negative (semitone) values.
-- `-s` | `--spk_list`: Select the speaker ID to use for conversion.
-- `-cl` | `--clip`: Forced audio clipping, set to 0 to disable(default), setting it to a non-zero value (duration in seconds) to enable.
+模型的输出会在`logs/<模型名>/feature_and_index.pkl`
 
-Optional parameters: see the next section
-- `-lg` | `--linear_gradient`: The cross fade length of two audio slices in seconds. If there is a discontinuous voice after forced slicing, you can adjust this value. Otherwise, it is recommended to use the default value of 0.
-- `-f0p` | `--f0_predictor`: Select a F0 predictor, options are `crepe`, `pm`, `dio`, `harvest`, `rmvpe`,`fcpe`, default value is `pm`(note: f0 mean pooling will be enable when using `crepe`)
-- `-a` | `--auto_predict_f0`: automatic pitch prediction, do not enable this when converting singing voices as it can cause serious pitch issues.
-- `-cm` | `--cluster_model_path`: Cluster model or feature retrieval index path, if left blank, it will be automatically set as the default path of these models. If there is no training cluster or feature retrieval, fill in at will.
-- `-cr` | `--cluster_infer_ratio`: The proportion of clustering scheme or feature retrieval ranges from 0 to 1. If there is no training clustering model or feature retrieval, the default is 0.
-- `-eh` | `--enhance`: Whether to use NSF_HIFIGAN enhancer, this option has certain effect on sound quality enhancement for some models with few training sets, but has negative effect on well-trained models, so it is disabled by default.
-- `-shd` | `--shallow_diffusion`: Whether to use shallow diffusion, which can solve some electrical sound problems after use. This option is disabled by default. When this option is enabled, NSF_HIFIGAN enhancer will be disabled
-- `-usm` | `--use_spk_mix`: whether to use dynamic voice fusion
-- `-lea` | `--loudness_envelope_adjustment`：The adjustment of the input source's loudness envelope in relation to the fusion ratio of the output loudness envelope. The closer to 1, the more the output loudness envelope is used
-- `-fr` | `--feature_retrieval`：Whether to use feature retrieval If clustering model is used, it will be disabled, and `cm` and `cr` parameters will become the index path and mixing ratio of feature retrieval
-  
-Shallow diffusion settings:
-- `-dm` | `--diffusion_model_path`: Diffusion model path
-- `-dc` | `--diffusion_config_path`: Diffusion config file path
-- `-ks` | `--k_step`: The larger the number of k_steps, the closer it is to the result of the diffusion model. The default is 100
-- `-od` | `--only_diffusion`: Whether to use Only diffusion mode, which does not load the sovits model to only use diffusion model inference
-- `-se` | `--second_encoding`：which involves applying an additional encoding to the original audio before shallow diffusion. This option can yield varying results - sometimes positive and sometimes negative.
++ 推理过程：
+  + 需要首先指定`--feature_retrieval`，此时聚类方案会自动切换到特征检索方案
+  + `services/inference_main.py`中指定`cluster_model_path` 为模型输出文件，留空则默认为`logs/<模型名>/feature_and_index.pkl`
+  + `services/inference_main.py`中指定`cluster_infer_ratio`，`0`为完全不使用特征检索，`1`为只使用特征检索，通常设置`0.5`即可
 
-### Cautions
 
-If inferencing using `whisper-ppg` speech encoder, you need to set `--clip` to 25 and `-lg` to 1. Otherwise it will fail to infer properly.
+## 🗜️ 模型压缩
 
-## 🤔 Optional Settings
+生成的模型含有继续训练所需的信息。如果确认不再训练，可以移除模型中此部分信息，得到约 1/3 大小的最终模型。
 
-If you are satisfied with the previous results, or if you do not feel you understand what follows, you can skip it and it will have no effect on the use of the model. The impact of these optional settings mentioned is relatively small, and while they may have some impact on specific datasets, in most cases the difference may not be significant.
-
-### Automatic f0 prediction
-
-During the training of the 4.0 model, an f0 predictor is also trained, which enables automatic pitch prediction during voice conversion. However, if the results are not satisfactory, manual pitch prediction can be used instead. Please note that when converting singing voices, it is advised not to enable this feature as it may cause significant pitch shifting.
-
-- Set `auto_predict_f0` to `true` in `services/inference_main.py`.
-
-### Cluster-based timbre leakage control
-
-Introduction: The clustering scheme implemented in this model aims to reduce timbre leakage and enhance the similarity of the trained model to the target's timbre, although the effect may not be very pronounced. However, relying solely on clustering can reduce the model's clarity and make it sound less distinct. Therefore, a fusion method is adopted in this model to control the balance between the clustering and non-clustering approaches. This allows manual adjustment of the trade-off between "sounding like the target's timbre" and "have clear enunciation" to find an optimal balance.
-
-No changes are required in the existing steps. Simply train an additional clustering model, which incurs relatively low training costs.
-
-- Training process:
-  - Train on a machine with good CPU performance. According to extant experience, it takes about 4 minutes to train each speaker on a Tencent Cloud machine with 6-core CPU.
-  - Execute `python cluster/train_cluster.py`. The output model will be saved in `logs/44k/kmeans_10000.pt`.
-  - The clustering model can currently be trained using the gpu by executing `python cluster/train_cluster.py --gpu`
-- Inference process:
-  - Specify `cluster_model_path` in `services/inference_main.py`. If not specified, the default is `logs/44k/kmeans_10000.pt`.
-  - Specify `cluster_infer_ratio` in `services/inference_main.py`, where `0` means not using clustering at all, `1` means only using clustering, and usually `0.5` is sufficient.
-
-### Feature retrieval
-
-Introduction: As with the clustering scheme, the timbre leakage can be reduced, the enunciation is slightly better than clustering, but it will reduce the inference speed. By employing the fusion method, it becomes possible to linearly control the balance between feature retrieval and non-feature retrieval, allowing for fine-tuning of the desired proportion.
-
-- Training process: 
-  First, it needs to be executed after generating hubert and f0: 
+使用 [tools/compress_model.py](tools/compress_model.py)
 
 ```shell
-python -m train_pipeline.train_index -c configs/config.json
+# 例
+python -m tools.compress_model -c="logs/<模型名>/config.json" -i="logs/<模型名>/G_30400.pth" -o="logs/<模型名>/release.pth"
 ```
 
-The output of the model will be in `logs/44k/feature_and_index.pkl`
+## 👨‍🔧 声线混合
 
-- Inference process: 
-  - The `--feature_retrieval` needs to be formulated first, and the clustering mode automatically switches to the feature retrieval mode.
-  - Specify `cluster_model_path` in `services/inference_main.py`. If not specified, the default is `logs/44k/feature_and_index.pkl`.
-  - Specify `cluster_infer_ratio` in `services/inference_main.py`, where `0` means not using feature retrieval at all, `1` means only using feature retrieval, and usually `0.5` is sufficient.
+### 静态声线混合
 
-## 🗜️ Model compression
+**参考`app_infer.py`文件中，小工具/实验室特性的静态声线融合。**
 
-The generated model contains data that is needed for further training. If you confirm that the model is final and not be used in further training, it is safe to remove these data to get smaller file size (about 1/3).
+介绍：该功能可以将多个声音模型合成为一个声音模型（多个模型参数的凸组合或线性组合），从而制造出现实中不存在的声线
+**注意：**
 
-```shell
-# Example
-python -m tools.compress_model -c="configs/config.json" -i="logs/44k/G_30400.pth" -o="logs/44k/release.pth"
-```
+1. 该功能仅支持单说话人的模型
+2. 如果强行使用多说话人模型，需要保证多个模型的说话人数量相同，这样可以混合同一个 SpaekerID 下的声音
+3. 保证所有待混合模型的 config.json 中的 model 字段是相同的
+4. 输出的混合模型可以使用待合成模型的任意一个 config.json，但聚类模型将不能使用
+5. 批量上传模型的时候最好把模型放到一个文件夹选中后一起上传
+6. 混合比例调整建议大小在 0-100 之间，也可以调为其他数字，但在线性组合模式下会出现未知的效果
+7. 混合完毕后，文件将会保存在项目根目录中，文件名为 output.pth
+8. 凸组合模式会将混合比例执行 Softmax 使混合比例相加为 1，而线性组合模式不会
 
-## 👨‍🔧 Timbre mixing
+### 动态声线混合
 
-### Static Tone Mixing
+**参考`spkmix.py`文件中关于动态声线混合的介绍**
 
-**Refer to `app_infer.py` file for stable Timbre mixing of the gadget/lab feature.**
+角色混合轨道 编写规则：
 
-Introduction: This function can combine multiple models into one model (convex combination or linear combination of multiple model parameters) to create mixed voice that do not exist in reality
+角色 ID : \[\[起始时间 1, 终止时间 1, 起始数值 1, 起始数值 1], [起始时间 2, 终止时间 2, 起始数值 2, 起始数值 2]]
 
-**Note:**
-1. This feature is only supported for single-speaker models
-2. If you force a multi-speaker model, it is critical to make sure there are the same number of speakers in each model. This will ensure that sounds with the same SpeakerID can be mixed correctly.
-3. Ensure that the `model` fields in config.json of all models to be mixed are the same
-4. The mixed model can use any config.json file from the models being synthesized. However, the clustering model will not be functional after mixed.
-5. When batch uploading models, it is best to put the models into a folder and upload them together after selecting them
-6. It is suggested to adjust the mixing ratio between 0 and 100, or to other numbers, but unknown effects will occur in the linear combination mode
-7. After mixing, the file named output.pth will be saved in the root directory of the project
-8. Convex combination mode will perform Softmax to add the mix ratio to 1, while linear combination mode will not
+起始时间和前一个的终止时间必须相同，第一个起始时间必须为 0，最后一个终止时间必须为 1 （时间的范围为 0-1）
 
-### Dynamic timbre mixing
+全部角色必须填写，不使用的角色填、[\[0., 1., 0., 0.]] 即可
 
-**Refer to the `spkmix.py` file for an introduction to dynamic timbre mixing**
+融合数值可以随便填，在指定的时间段内从起始数值线性变化为终止数值，内部会自动确保线性组合为 1（凸组合条件），可以放心使用
 
-Character mix track writing rules:
+推理的时候使用`--use_spk_mix`参数即可启用动态声线混合
 
-Role ID: \[\[Start time 1, end time 1, start value 1, start value 1], [Start time 2, end time 2, start value 2]]
+## 📤 Onnx 导出
 
-The start time must be the same as the end time of the previous one. The first start time must be 0, and the last end time must be 1 (time ranges from 0 to 1).
+使用 [tools/onnx_export.py](tools/onnx_export.py)
 
-All roles must be filled in. For unused roles, fill \[\[0., 1., 0., 0.]]
++ 新建文件夹：`checkpoints` 并打开
++ 在`checkpoints`文件夹中新建一个文件夹作为项目文件夹，文件夹名为你的项目名称，比如`aziplayer`
++ 将你的模型更名为`model.pth`，配置文件更名为`config.json`，并放置到刚才创建的`aziplayer`文件夹下
++ 将 [tools/onnx_export.py](tools/onnx_export.py) 中`path = "NyaruTaffy"` 的 `"NyaruTaffy"` 修改为你的项目名称，`path = "aziplayer" (onnx_export_speaker_mix，为支持角色混合的 onnx 导出）`
++ 运行 `python -m tools.onnx_export`
++ 等待执行完毕，在你的项目文件夹下会生成一个`model.onnx`，即为导出的模型
 
-The fusion value can be filled in arbitrarily, and the linear change from the start value to the end value within the specified period of time. The 
+注意：当前仓库的主线已固定为 HF ContentVec。若你仍需尝试历史 Onnx 路线，请把它视为额外实验能力，而不是当前主线工作流的一部分。
 
-internal linear combination will be automatically guaranteed to be 1 (convex combination condition), so it can be used safely
+## 📎 引用及论文
 
-Use the `--use_spk_mix` parameter when reasoning to enable dynamic timbre mixing
-
-## 📤 Exporting to Onnx
-
-Use [tools/onnx_export.py](https://github.com/svc-develop-team/so-vits-svc/blob/4.0/onnx_export.py)
-
-- Create a folder named `checkpoints` and open it
-- Create a folder in the `checkpoints` folder as your project folder, naming it after your project, for example `aziplayer`
-- Rename your model as `model.pth`, the configuration file as `config.json`, and place them in the `aziplayer` folder you just created
-- Modify `"NyaruTaffy"` in `path = "NyaruTaffy"` in [tools/onnx_export.py](https://github.com/svc-develop-team/so-vits-svc/blob/4.0/onnx_export.py) to your project name, `path = "aziplayer"`（onnx_export_speaker_mix makes you can mix speaker's voice）
-- Run `python -m tools.onnx_export`
-- Wait for it to finish running. A `model.onnx` will be generated in your project folder, which is the exported model.
-
-Note: For Hubert Onnx models, please use the models provided by MoeSS. Currently, they cannot be exported on their own (Hubert in fairseq has many unsupported operators and things involving constants that can cause errors or result in problems with the input/output shape and results when exported.)
-
-
-## 📎 Reference
-
-| URL | Designation | Title | Implementation Source |
+| URL | 名称 | 标题 | 源码 |
 | --- | ----------- | ----- | --------------------- |
 |[2106.06103](https://arxiv.org/abs/2106.06103) | VITS (Synthesizer)| Conditional Variational Autoencoder with Adversarial Learning for End-to-End Text-to-Speech | [jaywalnut310/vits](https://github.com/jaywalnut310/vits) |
 |[2111.02392](https://arxiv.org/abs/2111.02392) | SoftVC (Speech Encoder)| A Comparison of Discrete and Soft Speech Units for Improved Voice Conversion | [bshall/hubert](https://github.com/bshall/hubert) |
@@ -611,17 +560,14 @@ Note: For Hubert Onnx models, please use the models provided by MoeSS. Currently
 |[1810.11946](https://arxiv.org/abs/1810.11946.pdf) | NSF (Vocoder) | Neural source-filter-based waveform model for statistical parametric speech synthesis | [openvpi/DiffSinger/modules/nsf_hifigan](https://github.com/openvpi/DiffSinger/tree/refactor/modules/nsf_hifigan)
 |[2006.08195](https://arxiv.org/abs/2006.08195) | Snake (Vocoder) | Neural Networks Fail to Learn Periodic Functions and How to Fix It | [EdwardDixon/snake](https://github.com/EdwardDixon/snake)
 |[2105.02446v3](https://arxiv.org/abs/2105.02446v3) | Shallow Diffusion (PostProcessing)| DiffSinger: Singing Voice Synthesis via Shallow Diffusion Mechanism | [CNChTu/Diffusion-SVC](https://github.com/CNChTu/Diffusion-SVC) |
-|[K-means](https://citeseerx.ist.psu.edu/viewdoc/download;jsessionid=01D65490BADCC216F350D06F84D721AD?doi=10.1.1.308.8619&rep=rep1&type=pdf) | Feature K-means Clustering (PreProcessing)| Some methods for classification and analysis of multivariate observations | This repo |
+|[K-means](https://citeseerx.ist.psu.edu/viewdoc/download;jsessionid=01D65490BADCC216F350D06F84D721AD?doi=10.1.1.308.8619&rep=rep1&type=pdf) | Feature K-means Clustering (PreProcessing)| Some methods for classification and analysis of multivariate observations | 本代码库 |
 | | Feature TopK Retrieval (PreProcessing)| Retrieval based Voice Conversion | [RVC-Project/Retrieval-based-Voice-Conversion-WebUI](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI) |
-| | whisper ppg| whisper ppg | [PlayVoice/whisper_ppg](https://github.com/PlayVoice/whisper_ppg) |
-| | bigvgan| bigvgan | [PlayVoice/so-vits-svc-5.0](https://github.com/PlayVoice/so-vits-svc-5.0/tree/bigvgan-mix-v2/vits_decoder/alias) |
 
+## ☀️ 旧贡献者
 
-## ☀️ Previous contributors
+因为某些原因原作者进行了删库处理，本仓库重建之初由于组织成员疏忽直接重新上传了所有文件导致以前的 contributors 全部木大，现在在 README 里重新添加一个旧贡献者列表
 
-For some reason the author deleted the original repository. Because of the negligence of the organization members, the contributor list was cleared because all files were directly reuploaded to this repository at the beginning of the reconstruction of this repository. Now add a previous contributor list to README.md.
-
-*Some members have not listed according to their personal wishes.*
+*某些成员已根据其个人意愿不将其列出*
 
 <table>
   <tr>
@@ -630,38 +576,38 @@ For some reason the author deleted the original repository. Because of the negli
     <td align="center"><a href="https://github.com/ForsakenRei"><img src="https://avatars.githubusercontent.com/u/23041178?v=4" width="100px;" alt=""/><br /><sub><b>しぐれ</b></sub></a><br /></td>
     <td align="center"><a href="https://github.com/TomoGaSukunai"><img src="https://avatars.githubusercontent.com/u/25863522?v=4" width="100px;" alt=""/><br /><sub><b>TomoGaSukunai</b></sub></a><br /></td>
     <td align="center"><a href="https://github.com/Plachtaa"><img src="https://avatars.githubusercontent.com/u/112609742?v=4" width="100px;" alt=""/><br /><sub><b>Plachtaa</b></sub></a><br /></td>
-    <td align="center"><a href="https://github.com/zdxiaoda"><img src="https://avatars.githubusercontent.com/u/45501959?v=4" width="100px;" alt=""/><br /><sub><b>zd小达</b></sub></a><br /></td>
+    <td align="center"><a href="https://github.com/zdxiaoda"><img src="https://avatars.githubusercontent.com/u/45501959?v=4" width="100px;" alt=""/><br /><sub><b>zd 小达</b></sub></a><br /></td>
     <td align="center"><a href="https://github.com/Archivoice"><img src="https://avatars.githubusercontent.com/u/107520869?v=4" width="100px;" alt=""/><br /><sub><b>凍聲響世</b></sub></a><br /></td>
   </tr>
 </table>
 
-## 📚 Some legal provisions for reference
+## 📚 一些法律条例参考
 
-#### Any country, region, organization, or individual using this project must comply with the following laws.
+#### 任何国家，地区，组织和个人使用此项目必须遵守以下法律
 
 #### 《民法典》
 
-##### 第一千零一十九条 
+##### 第一千零一十九条
 
 任何组织或者个人不得以丑化、污损，或者利用信息技术手段伪造等方式侵害他人的肖像权。未经肖像权人同意，不得制作、使用、公开肖像权人的肖像，但是法律另有规定的除外。未经肖像权人同意，肖像作品权利人不得以发表、复制、发行、出租、展览等方式使用或者公开肖像权人的肖像。对自然人声音的保护，参照适用肖像权保护的有关规定。
 
-#####  第一千零二十四条 
+##### 第一千零二十四条
 
-【名誉权】民事主体享有名誉权。任何组织或者个人不得以侮辱、诽谤等方式侵害他人的名誉权。  
+【名誉权】民事主体享有名誉权。任何组织或者个人不得以侮辱、诽谤等方式侵害他人的名誉权。
 
-#####  第一千零二十七条
+##### 第一千零二十七条
 
-【作品侵害名誉权】行为人发表的文学、艺术作品以真人真事或者特定人为描述对象，含有侮辱、诽谤内容，侵害他人名誉权的，受害人有权依法请求该行为人承担民事责任。行为人发表的文学、艺术作品不以特定人为描述对象，仅其中的情节与该特定人的情况相似的，不承担民事责任。  
+【作品侵害名誉权】行为人发表的文学、艺术作品以真人真事或者特定人为描述对象，含有侮辱、诽谤内容，侵害他人名誉权的，受害人有权依法请求该行为人承担民事责任。行为人发表的文学、艺术作品不以特定人为描述对象，仅其中的情节与该特定人的情况相似的，不承担民事责任。
 
 #### 《[中华人民共和国宪法](http://www.gov.cn/guoqing/2018-03/22/content_5276318.htm)》
 
-#### 《[中华人民共和国刑法](http://gongbao.court.gov.cn/Details/f8e30d0689b23f57bfc782d21035c3.html?sw=%E4%B8%AD%E5%8D%8E%E4%BA%BA%E6%B0%91%E5%85%B1%E5%92%8C%E5%9B%BD%E5%88%91%E6%B3%95)》
+#### 《[中华人民共和国刑法](http://gongbao.court.gov.cn/Details/f8e30d0689b23f57bfc782d21035c3.html?sw=中华人民共和国刑法)》
 
 #### 《[中华人民共和国民法典](http://gongbao.court.gov.cn/Details/51eb6750b8361f79be8f90d09bc202.html)》
 
 #### 《[中华人民共和国合同法](http://www.npc.gov.cn/zgrdw/npc/lfzt/rlyw/2016-07/01/content_1992739.htm)》
 
-## 💪 Thanks to all contributors for their efforts
+## 💪 感谢所有的贡献者
 <a href="https://github.com/svc-develop-team/so-vits-svc/graphs/contributors" target="_blank">
   <img src="https://contrib.rocks/image?repo=svc-develop-team/so-vits-svc" />
 </a>

@@ -80,7 +80,7 @@ if __name__ == "__main__":
         wavs = []
 
         for file_name in os.listdir(os.path.join(args.source_dir, speaker)):
-            if not file_name.endswith("wav"):
+            if not file_name.lower().endswith(".wav"):
                 continue
             if file_name.startswith("."):
                 continue
