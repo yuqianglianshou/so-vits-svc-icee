@@ -1337,17 +1337,15 @@ def render_auto_batch_probe_summary(path: Path):
     if path is None or not path.exists():
         return "当前还没有自动 batch size 结果。"
 
+    max_value, recommended_value = parse_auto_batch_probe_values(path)
+    if max_value not in {"—", "", None} and recommended_value not in {"—", "", None}:
+        return (
+            f"极限每卡 batch size：{max_value}\n"
+            f"实际推荐 batch size：{recommended_value}"
+        )
+
     with path.open("r", encoding="utf-8", errors="ignore") as f:
         content = f.read()
-
-    max_supported_matches = re.findall(r"极限每卡 batch size：(\d+)", content)
-    recommended_matches = re.findall(r"推荐值：(\d+)", content)
-
-    if max_supported_matches and recommended_matches:
-        return (
-            f"极限每卡 batch size：{max_supported_matches[-1]}\n"
-            f"实际推荐 batch size：{recommended_matches[-1]}"
-        )
 
     if "[AutoBatch]" in content:
         return "自动 batch size 探测进行中，等待结果..."
@@ -1361,14 +1359,45 @@ def parse_auto_batch_probe_values(path: Path):
         return "—", "—"
 
     with path.open("r", encoding="utf-8", errors="ignore") as f:
-        content = f.read()
+        lines = f.read().splitlines()
 
-    max_supported_matches = re.findall(r"极限每卡 batch size：(\d+)", content)
-    recommended_matches = re.findall(r"推荐值：(\d+)", content)
+    max_value = None
+    recommended_value = None
 
-    max_value = max_supported_matches[-1] if max_supported_matches else "—"
-    recommended_value = recommended_matches[-1] if recommended_matches else "—"
-    return max_value, recommended_value
+    for line in lines:
+        summary_match = re.search(
+            r"\[AutoBatch\].*极限每卡 batch size：(\d+).*推荐值：(\d+)",
+            line,
+        )
+        if summary_match:
+            max_value = summary_match.group(1)
+            recommended_value = summary_match.group(2)
+
+    if max_value and recommended_value:
+        return max_value, recommended_value
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped.startswith("{"):
+            continue
+        try:
+            payload = json.loads(stripped)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        batch_size = payload.get("batch_size")
+        ok = payload.get("ok")
+        if ok is True and isinstance(batch_size, int):
+            max_value = str(batch_size)
+        elif ok is False and max_value is not None:
+            break
+
+    if max_value is not None:
+        recommended_value = str(max(1, int(int(max_value) * 0.75)))
+        return str(max_value), recommended_value
+
+    return "—", "—"
 
 
 def apply_detected_batch_size(mode: str):

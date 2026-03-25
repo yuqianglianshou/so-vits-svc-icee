@@ -87,11 +87,15 @@ def plot_data_to_numpy(x, y):
     plt.plot(y)
     plt.tight_layout()
 
-    fig.canvas.draw()
-    data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    data = figure_to_rgb_array(fig)
     plt.close()
     return data
+
+
+def figure_to_rgb_array(fig):
+    fig.canvas.draw()
+    data = np.asarray(fig.canvas.buffer_rgba(), dtype=np.uint8)[..., :3]
+    return np.ascontiguousarray(data)
 
 
 def f0_to_coarse(f0):
@@ -246,9 +250,7 @@ def plot_spectrogram_to_numpy(spectrogram):
   plt.ylabel("Channels")
   plt.tight_layout()
 
-  fig.canvas.draw()
-  data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
-  data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+  data = figure_to_rgb_array(fig)
   plt.close()
   return data
 
@@ -275,9 +277,7 @@ def plot_alignment_to_numpy(alignment, info=None):
   plt.ylabel('Encoder timestep')
   plt.tight_layout()
 
-  fig.canvas.draw()
-  data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
-  data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+  data = figure_to_rgb_array(fig)
   plt.close()
   return data
 

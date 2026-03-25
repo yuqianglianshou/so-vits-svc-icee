@@ -85,6 +85,11 @@ def run(rank, n_gpus, hps):
     if all_in_mem:
         num_workers = 0
         persistent_workers = False
+    if os.name == "nt":
+        # Windows spawn/DDP environments can fail to create DataLoader worker pipes.
+        # Prefer single-process loading for reliability.
+        num_workers = 0
+        persistent_workers = False
 
     train_loader_kwargs = {
         "num_workers": num_workers,
@@ -113,6 +118,9 @@ def run(rank, n_gpus, hps):
         eval_prefetch_factor = hps.train.get("eval_prefetch_factor")
         if eval_prefetch_factor is None:
             eval_prefetch_factor = 2
+        if os.name == "nt":
+            eval_num_workers = 0
+            eval_persistent_workers = False
 
         eval_loader_kwargs = {
             "num_workers": eval_num_workers,
