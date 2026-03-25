@@ -255,7 +255,7 @@ def main():
         "recommended_batch_size": recommended_batch_size,
         "trials": trials,
     }
-    print(json.dumps(output, ensure_ascii=False, indent=2))
+    print(json.dumps(output, ensure_ascii=False, indent=2), flush=True)
 
 
 if __name__ == "__main__":

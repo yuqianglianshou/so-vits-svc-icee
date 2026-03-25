@@ -54,6 +54,7 @@ from train_ui.paths import (
 )
 from train_ui.state import build_button_state_maps, collect_stage_state, render_stage_judgement_html
 from train_ui.tasks import (
+    launch_autobatch_probe as launch_autobatch_probe_task,
     launch_config as launch_config_task,
     launch_pipeline_prep as launch_pipeline_prep_task,
     launch_pipeline_train_main as launch_pipeline_train_main_task,
@@ -138,11 +139,13 @@ TASK_LIFECYCLE_CACHE = {
 
 DEFAULT_PREPROCESS_WORKERS = 6
 DEFAULT_SPEECH_ENCODER = "vec768l12"
+DEFAULT_BATCH_SIZE = json.loads((ROOT / "configs_template" / "config_template.json").read_text(encoding="utf-8"))["train"]["batch_size"]
 
 TASK_STAGE_LABELS = {
     "resample": "第 1 步：重采样",
     "preprocess_flist_config": "第 2 步：生成配置与文件列表",
     "preprocess_hubert_f0": "第 3 步：提取特征",
+    "autobatch_probe": "Batch Size 探测",
     "train_main": "第 4 步：主模型训练",
     "train_diff": "第 5 步：扩散训练",
     "train_index": "第 6 步：训练音色增强索引",
@@ -1119,6 +1122,10 @@ def render_button_updates(model_name: str = "44k", raw_dir: str = "default_datas
         gr.update(value=button_state["resample"]["value"], interactive=button_state["resample"]["interactive"]),
         gr.update(value=button_state["config"]["value"], interactive=button_state["config"]["interactive"]),
         gr.update(value=button_state["preprocess"]["value"], interactive=button_state["preprocess"]["interactive"]),
+        gr.update(
+            value="Batch Size 探测" if button_state["train"]["interactive"] else "Batch Size 探测（等待前置）",
+            interactive=button_state["train"]["interactive"],
+        ),
         gr.update(value=button_state["train"]["value"], interactive=button_state["train"]["interactive"]),
         gr.update(value=button_state["train_diff"]["value"], interactive=button_state["train_diff"]["interactive"]),
         gr.update(value=button_state["train_index"]["value"], interactive=button_state["train_index"]["interactive"]),
@@ -1348,12 +1355,53 @@ def render_auto_batch_probe_summary(path: Path):
     return "当前还没有自动 batch size 结果。"
 
 
+def parse_auto_batch_probe_values(path: Path):
+    """从任务日志中提取自动 batch size 的极限值与推荐值。"""
+    if path is None or not path.exists():
+        return "—", "—"
+
+    with path.open("r", encoding="utf-8", errors="ignore") as f:
+        content = f.read()
+
+    max_supported_matches = re.findall(r"极限每卡 batch size：(\d+)", content)
+    recommended_matches = re.findall(r"推荐值：(\d+)", content)
+
+    max_value = max_supported_matches[-1] if max_supported_matches else "—"
+    recommended_value = recommended_matches[-1] if recommended_matches else "—"
+    return max_value, recommended_value
+
+
+def apply_detected_batch_size(mode: str):
+    """把探测结果里的极限值或推荐值填入当前训练 batch size。"""
+    log_path = ACTIVE_TASK["log_path"]
+    max_value, recommended_value = parse_auto_batch_probe_values(log_path)
+    selected = recommended_value if mode == "recommended" else max_value
+    if selected in {"—", "", None}:
+        return gr.update(), "当前还没有可用的 Batch Size 探测结果。"
+    return gr.update(value=int(selected)), f"已将当前训练 batch size 设置为 {selected}。"
+
+
+def load_model_batch_size(model_name: str):
+    """读取当前模型工作区使用的 batch size；无配置时回落到模板默认值。"""
+    model_name = sanitize_model_name(model_name) or "default_model"
+    config_path = model_config_path(model_name)
+    if not config_path.exists():
+        return DEFAULT_BATCH_SIZE
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        return int(config.get("train", {}).get("batch_size", DEFAULT_BATCH_SIZE))
+    except Exception:
+        return DEFAULT_BATCH_SIZE
+
+
 def render_task_panel_snapshot(model_name: str, raw_dir: str, train_dir: str):
     log_path = ACTIVE_TASK["log_path"]
+    max_batch_size, recommended_batch_size = parse_auto_batch_probe_values(log_path)
     return (
         render_stage_alert(model_name, raw_dir, train_dir),
         render_runtime_banner(),
-        render_auto_batch_probe_summary(log_path),
+        max_batch_size,
+        recommended_batch_size,
         current_task_feedback(model_name, raw_dir, train_dir),
         task_runtime_text(),
         render_log_highlights(log_path),
@@ -1395,13 +1443,31 @@ def refresh_dashboard(model_name: str, raw_dir: str, train_dir: str):
     """在用户显式操作后刷新训练页的大部分状态快照。"""
     button_updates = render_button_updates(model_name, raw_dir, train_dir)
     workspace_control_updates = render_workspace_control_updates()
+    (
+        stage_alert_text,
+        runtime_banner_text,
+        max_batch_size,
+        recommended_batch_size,
+        task_feedback,
+        runtime_text,
+        log_highlights,
+        log_tail,
+    ) = render_task_panel_snapshot(model_name, raw_dir, train_dir)
     return (
         render_model_workspace_summary(model_name),
         gr.update(label=dataset_file_list_label(raw_dir)),
         render_dataset_file_list(raw_dir),
         render_stage_judgement(model_name, raw_dir, train_dir),
         render_preflight_check(model_name, raw_dir, train_dir),
-        *render_task_panel_snapshot(model_name, raw_dir, train_dir),
+        stage_alert_text,
+        runtime_banner_text,
+        max_batch_size,
+        recommended_batch_size,
+        load_model_batch_size(model_name),
+        task_feedback,
+        runtime_text,
+        log_highlights,
+        log_tail,
         *button_updates,
         *workspace_control_updates,
     )
@@ -1409,6 +1475,7 @@ def refresh_dashboard(model_name: str, raw_dir: str, train_dir: str):
 
 def refresh_text_dashboard(model_name: str, raw_dir: str, train_dir: str):
     log_path = ACTIVE_TASK["log_path"]
+    max_batch_size, recommended_batch_size = parse_auto_batch_probe_values(log_path)
     return (
         render_model_workspace_summary(model_name),
         gr.update(label=dataset_file_list_label(raw_dir)),
@@ -1416,7 +1483,8 @@ def refresh_text_dashboard(model_name: str, raw_dir: str, train_dir: str):
         render_stage_judgement(model_name, raw_dir, train_dir),
         render_preflight_check(model_name, raw_dir, train_dir),
         render_stage_alert(model_name, raw_dir, train_dir),
-        render_auto_batch_probe_summary(log_path),
+        max_batch_size,
+        recommended_batch_size,
         current_task_feedback(model_name, raw_dir, train_dir),
         task_runtime_text(),
         render_log_highlights(log_path),
@@ -1440,7 +1508,8 @@ def auto_refresh_dashboard(model_name: str, raw_dir: str, train_dir: str):
             '<div class="stage-check-row"><div class="stage-check-title"><span class="stage-dot" style="color:#c0392b;">●</span>自动刷新失败，请稍后重试或手动点击刷新任务状态。</div></div>',
             render_preflight_check(safe_model_name, safe_raw_dir, safe_train_dir),
             render_stage_alert(safe_model_name, safe_raw_dir, safe_train_dir),
-            "当前还没有自动 batch size 结果。",
+            "—",
+            "—",
             fallback_message,
             fallback_message,
             extract_log_highlights(log_path),
@@ -1541,11 +1610,24 @@ def launch_preprocess(model_name: str, train_dir: str):
     )
 
 
-def launch_train(model_name: str, auto_batch_probe: bool = False):
+def launch_autobatch_probe(model_name: str):
+    """独立启动 batch size 探测。"""
+    return launch_autobatch_probe_task(
+        model_name,
+        active_task=ACTIVE_TASK,
+        task_log_dir=TASK_LOG_DIR,
+        task_stage_labels=TASK_STAGE_LABELS,
+        set_active_task_fn=set_active_task,
+        task_runtime_text_fn=task_runtime_text,
+        tail_log_fn=tail_log,
+    )
+
+
+def launch_train(model_name: str, batch_size: int | float | None = None):
     """启动第 4 步：主模型训练。"""
     return launch_train_task(
         model_name,
-        auto_batch_probe=auto_batch_probe,
+        batch_size=batch_size,
         active_task=ACTIVE_TASK,
         task_log_dir=TASK_LOG_DIR,
         task_stage_labels=TASK_STAGE_LABELS,
@@ -1601,14 +1683,14 @@ def launch_pipeline_prep(model_name: str, raw_dir: str, train_dir: str, speech_e
     )
 
 
-def launch_pipeline_train_main(model_name: str, raw_dir: str, train_dir: str, speech_encoder: str, auto_batch_probe: bool = False):
+def launch_pipeline_train_main(model_name: str, raw_dir: str, train_dir: str, speech_encoder: str, batch_size: int | float | None = None):
     """启动到主模型训练为止的完整流程。"""
     return launch_pipeline_train_main_task(
         model_name,
         raw_dir,
         train_dir,
         normalize_speech_encoder_choice(speech_encoder),
-        auto_batch_probe=auto_batch_probe,
+        batch_size=batch_size,
         default_preprocess_workers=DEFAULT_PREPROCESS_WORKERS,
         active_task=ACTIVE_TASK,
         task_log_dir=TASK_LOG_DIR,
@@ -1906,20 +1988,40 @@ with gr.Blocks(
             with gr.Row():
                 preprocess_btn = gr.Button("3. 提取特征", elem_classes=["primary-action"])
                 pipeline_prep_btn = gr.Button("一键执行 1-3 步", elem_classes=["primary-action"])
+            gr.Markdown(
+                "#### Batch Size 说明\n"
+                "- `batch size` 可以理解为：**一次送进 GPU 同时训练的样本量**。\n"
+                "- 一般来说，`batch size` 越大，训练吞吐越高；但太大容易把显存和整机资源吃满。\n"
+                "- 推荐先做一次 `Batch Size 探测`，再决定正式训练时实际使用多少。"
+            )
             with gr.Row():
+                autobatch_probe_btn = gr.Button("Batch Size 探测", elem_classes=["secondary-action"])
                 train_btn = gr.Button("4. 启动主模型训练", elem_classes=["primary-action"])
+            with gr.Row():
                 pipeline_train_btn = gr.Button("一键执行到主模型训练", elem_classes=["primary-action"])
-            auto_batch_probe_toggle = gr.Checkbox(
-                label="训练前自动探测 batch size（实验项）",
-                value=False,
-                info="勾选后会先做单卡探测，再按安全余量折算成更适合日常使用的推荐 batch size 用于正式训练。",
-            )
-            auto_batch_probe_summary = gr.Textbox(
-                label="自动 batch size 结果",
-                value=render_auto_batch_probe_summary(ACTIVE_TASK["log_path"]),
-                lines=2,
-                interactive=False,
-            )
+            with gr.Row():
+                auto_batch_probe_max = gr.Textbox(
+                    label="探测极限值",
+                    value=parse_auto_batch_probe_values(ACTIVE_TASK["log_path"])[0],
+                    interactive=False,
+                    info="表示这台机器在当前配置下，自动探测到的“最大可跑每卡 batch size”。它更接近极限值，不一定适合边训练边做其他事情。",
+                )
+                auto_batch_probe_recommended = gr.Textbox(
+                    label="推荐值",
+                    value=parse_auto_batch_probe_values(ACTIVE_TASK["log_path"])[1],
+                    interactive=False,
+                    info="表示在极限值基础上预留安全余量后的建议值。通常更适合作为日常训练起点。",
+                )
+                train_batch_size_value = gr.Number(
+                    label="当前训练使用 batch size（可改）",
+                    value=load_model_batch_size(initial_model_name),
+                    precision=0,
+                    minimum=1,
+                    info="主模型训练实际会使用这个值。你可以手动改小一点，给系统和桌面操作留更多余量。",
+                )
+            with gr.Row():
+                use_recommended_batch_btn = gr.Button("采用推荐值", elem_classes=["info-action"])
+                use_max_batch_btn = gr.Button("采用极限值", elem_classes=["secondary-action"])
             gr.Markdown("### 进阶训练")
             with gr.Row():
                 train_diff_btn = gr.Button("5. 启动扩散训练", elem_classes=["secondary-action"])
@@ -1950,7 +2052,9 @@ with gr.Blocks(
         preflight_check,
         stage_alert,
         runtime_banner,
-        auto_batch_probe_summary,
+        auto_batch_probe_max,
+        auto_batch_probe_recommended,
+        train_batch_size_value,
         task_message,
         task_status,
         task_log_highlights,
@@ -1960,6 +2064,7 @@ with gr.Blocks(
         resample_btn,
         config_btn,
         preprocess_btn,
+        autobatch_probe_btn,
         train_btn,
         train_diff_btn,
         train_index_btn,
@@ -1975,7 +2080,8 @@ with gr.Blocks(
         stage_judgement,
         preflight_check,
         stage_alert,
-        auto_batch_probe_summary,
+        auto_batch_probe_max,
+        auto_batch_probe_recommended,
         task_message,
         task_status,
         task_log_highlights,
@@ -1990,7 +2096,8 @@ with gr.Blocks(
         [
             stage_alert,
             runtime_banner,
-            auto_batch_probe_summary,
+            auto_batch_probe_max,
+            auto_batch_probe_recommended,
             task_message,
             task_status,
             task_log_highlights,
@@ -2000,6 +2107,7 @@ with gr.Blocks(
             resample_btn,
             config_btn,
             preprocess_btn,
+            autobatch_probe_btn,
             train_btn,
             train_diff_btn,
             train_index_btn,
@@ -2189,7 +2297,22 @@ with gr.Blocks(
     preprocess_btn.click(launch_preprocess, [train_model_name, dataset_train_dir], [task_message, task_status, task_log], show_api=False).then(
         refresh_dashboard, [train_model_name, dataset_source_dir, dataset_train_dir], refresh_outputs, show_api=False
     )
-    train_btn.click(launch_train, [train_model_name, auto_batch_probe_toggle], [task_message, task_status, task_log], show_api=False).then(
+    autobatch_probe_btn.click(launch_autobatch_probe, [train_model_name], [task_message, task_status, task_log], show_api=False).then(
+        refresh_dashboard, [train_model_name, dataset_source_dir, dataset_train_dir], refresh_outputs, show_api=False
+    )
+    use_recommended_batch_btn.click(
+        lambda: apply_detected_batch_size("recommended"),
+        [],
+        [train_batch_size_value, task_log_highlights],
+        show_api=False,
+    )
+    use_max_batch_btn.click(
+        lambda: apply_detected_batch_size("max"),
+        [],
+        [train_batch_size_value, task_log_highlights],
+        show_api=False,
+    )
+    train_btn.click(launch_train, [train_model_name, train_batch_size_value], [task_message, task_status, task_log], show_api=False).then(
         refresh_dashboard, [train_model_name, dataset_source_dir, dataset_train_dir], refresh_outputs, show_api=False
     )
     train_diff_btn.click(launch_train_diff, [train_model_name], [task_message, task_status, task_log], show_api=False).then(
@@ -2203,7 +2326,7 @@ with gr.Blocks(
     )
     pipeline_train_btn.click(
         launch_pipeline_train_main,
-        [train_model_name, dataset_source_dir, dataset_train_dir, speech_encoder_selector, auto_batch_probe_toggle],
+        [train_model_name, dataset_source_dir, dataset_train_dir, speech_encoder_selector, train_batch_size_value],
         [task_message, task_status, task_log],
         show_api=False,
     ).then(refresh_dashboard, [train_model_name, dataset_source_dir, dataset_train_dir], refresh_outputs, show_api=False)

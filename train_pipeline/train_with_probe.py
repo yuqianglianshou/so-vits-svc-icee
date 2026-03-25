@@ -13,6 +13,11 @@ from train_pipeline.autobatch_probe import (
 import utils
 
 
+def log_autobatch(message: str):
+    """确保自动 batch size 日志在重定向到文件时也能及时落盘。"""
+    print(message, flush=True)
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", type=str, required=True, help="训练配置文件")
@@ -27,6 +32,11 @@ def parse_args():
         default=0.75,
         help="自动探测后的推荐安全系数；1.0 表示直接使用极限可用值。",
     )
+    parser.add_argument(
+        "--probe-only",
+        action="store_true",
+        help="只做 batch size 探测，不进入正式训练。",
+    )
     return parser.parse_args()
 
 
@@ -38,7 +48,7 @@ def main():
         start_batch_size, args.max_batch_size, args.max_trials
     )
 
-    print(
+    log_autobatch(
         f"[AutoBatch] 已启用训练前自动探测，设备：{args.device}，"
         f"起始每卡 batch size：{start_batch_size}，安全系数：{args.safety_factor}"
     )
@@ -47,7 +57,7 @@ def main():
     for batch_size in candidate_batch_sizes:
         result = run_single_probe(hps, batch_size, args.device)
         trials.append(result)
-        print(json.dumps(result, ensure_ascii=False))
+        print(json.dumps(result, ensure_ascii=False), flush=True)
         if result["ok"]:
             last_success = batch_size
             continue
@@ -59,11 +69,17 @@ def main():
         )
 
     recommended_batch_size = apply_safety_margin(last_success, args.safety_factor)
-    print(
+    log_autobatch(
         f"[AutoBatch] 探测到的极限每卡 batch size：{last_success}；"
         f"按安全系数折算后的推荐值：{recommended_batch_size}。"
     )
-    print(f"[AutoBatch] 即将按推荐值切入正式训练。")
+    if args.probe_only:
+        log_autobatch("[AutoBatch] 已完成独立探测，本次不会启动正式训练。")
+        return
+
+    log_autobatch(f"[AutoBatch] 即将按推荐值切入正式训练。")
+    sys.stdout.flush()
+    sys.stderr.flush()
     os.execv(
         sys.executable,
         [

@@ -310,7 +310,32 @@ def launch_preprocess(
     )
 
 
-def launch_train(model_name: str, auto_batch_probe: bool = False, *, active_task: dict, task_log_dir: Path, task_stage_labels: dict, set_active_task_fn: Callable, task_runtime_text_fn: Callable[[], str], tail_log_fn: Callable[[Path], str]):
+def launch_autobatch_probe(model_name: str, *, active_task: dict, task_log_dir: Path, task_stage_labels: dict, set_active_task_fn: Callable, task_runtime_text_fn: Callable[[], str], tail_log_fn: Callable[[Path], str]):
+    """独立启动 batch size 探测，不进入正式训练。"""
+    model_name = sanitize_model_name(model_name)
+    ensure_runtime_base_models(model_name)
+    return start_task(
+        "autobatch_probe",
+        [
+            sys.executable,
+            "-m",
+            "train_pipeline.train_with_probe",
+            "-c",
+            model_config_path(model_name).relative_to(ROOT).as_posix(),
+            "-m",
+            model_name,
+            "--probe-only",
+        ],
+        active_task=active_task,
+        task_log_dir=task_log_dir,
+        task_stage_labels=task_stage_labels,
+        set_active_task_fn=set_active_task_fn,
+        task_runtime_text_fn=task_runtime_text_fn,
+        tail_log_fn=tail_log_fn,
+    )
+
+
+def launch_train(model_name: str, batch_size: int | float | None = None, *, active_task: dict, task_log_dir: Path, task_stage_labels: dict, set_active_task_fn: Callable, task_runtime_text_fn: Callable[[], str], tail_log_fn: Callable[[Path], str]):
     """启动第 4 步：主模型训练。"""
     model_name = sanitize_model_name(model_name)
     ensure_runtime_base_models(model_name)
@@ -324,16 +349,8 @@ def launch_train(model_name: str, auto_batch_probe: bool = False, *, active_task
         "-m",
         model_name,
     ]
-    if auto_batch_probe:
-        train_cmd = [
-            sys.executable,
-            "-m",
-            "train_pipeline.train_with_probe",
-            "-c",
-            model_config_path(model_name).relative_to(ROOT).as_posix(),
-            "-m",
-            model_name,
-        ]
+    if batch_size is not None:
+        train_cmd.extend(["--batch-size", str(int(batch_size))])
     return start_task(
         "train_main",
         train_cmd,
@@ -479,7 +496,7 @@ def launch_pipeline_train_main(
     raw_dir: str,
     train_dir: str,
     speech_encoder: str,
-    auto_batch_probe: bool = False,
+    batch_size: int | float | None = None,
     *,
     default_preprocess_workers: int,
     active_task: dict,
@@ -549,7 +566,7 @@ def launch_pipeline_train_main(
             [
                 sys.executable,
                 "-m",
-                "train_pipeline.train_with_probe" if auto_batch_probe else "train_pipeline.train",
+                "train_pipeline.train",
                 "-c",
                 model_config_path(model_name).relative_to(ROOT).as_posix(),
                 "-m",
@@ -558,6 +575,8 @@ def launch_pipeline_train_main(
             False,
         ),
     ]
+    if batch_size is not None:
+        steps[-1][1].extend(["--batch-size", str(int(batch_size))])
     message, runtime_text, log_text = start_pipeline(
         "pipeline_train_main",
         steps,
