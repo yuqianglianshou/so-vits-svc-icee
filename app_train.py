@@ -11,18 +11,12 @@
 
 import json
 import os
-import platform
-import re
 import ssl
 import shutil
-import socket
-import subprocess
-import sys
 import tempfile
 import time
 import urllib.error
 import urllib.request
-import webbrowser
 import zipfile
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -46,15 +40,11 @@ from path_utils import (
 from train_ui.paths import (
     default_train_dir_for_dataset,
     model_config_path,
-    model_root_dir,
-    model_workspace_path,
-    resolve_raw_dataset_dir,
     sanitize_dataset_name,
     sanitize_model_name,
 )
 from train_ui.state import build_button_state_maps, collect_stage_state, render_stage_judgement_html
 from train_ui.tasks import (
-    launch_autobatch_probe as launch_autobatch_probe_task,
     launch_config as launch_config_task,
     launch_pipeline_prep as launch_pipeline_prep_task,
     launch_pipeline_train_main as launch_pipeline_train_main_task,
@@ -75,28 +65,57 @@ from train_ui.pretrain import (
     pretrain_asset_choices,
     render_pretrain_asset_guide as render_pretrain_asset_guide_html,
     render_pretrain_status as render_pretrain_status_html,
-    resolve_uploaded_path,
     resolve_uploaded_paths,
 )
-from train_ui.workspace import (
-    count_raw_dataset_wavs,
-    count_training_wavs,
-    dataset_file_list_label as build_dataset_file_list_label,
-    has_raw_dataset_wavs,
-    raw_dataset_display_name as build_raw_dataset_display_name,
-    render_dataset_file_list as render_dataset_file_list_html,
-    render_dataset_import_status_for_dataset as render_dataset_import_status_for_dataset_html,
-    render_model_workspace_summary as render_model_workspace_summary_html,
+from train_ui.workspaces import (
+    create_model_workspace_action,
+    delete_dataset_directory,
+    delete_model_workspace_action,
+    dataset_file_list_label,
+    infer_workspace_dataset_name,
+    import_dataset_directory,
+    load_last_selected_model,
+    load_model_workspace,
+    prepare_delete_dataset as prepare_delete_dataset_action,
+    prepare_delete_model_workspace_action,
+    render_dataset_file_list,
+    render_dataset_import_status_for_dataset,
+    render_model_workspace_summary,
+    save_last_selected_model,
+    save_model_workspace,
+    scan_dataset_candidates,
+    scan_model_workspaces,
+    switch_model_workspace_action,
+    suggest_next_dataset_name,
 )
-from train_ui.panels import (
-    build_preflight_check_html,
-    build_runtime_banner_text,
-    build_stage_alert_text,
-    build_task_feedback,
+from train_ui.panels import build_stage_alert_text, build_task_feedback
+from train_ui.runtime import (
+    render_preflight_check as render_preflight_check_html,
+    render_runtime_banner as render_runtime_banner_text,
+    render_task_panel_snapshot as render_task_panel_snapshot_text,
+    tail_log,
+    task_runtime_text as task_runtime_text_render,
+)
+from train_ui.config_sync import (
+    load_model_batch_size as load_model_batch_size_sync,
+    load_template_batch_size as load_template_batch_size_sync,
+    persist_batch_size as persist_batch_size_sync,
+)
+from train_ui.launchers import (
+    ensure_localhost_bypass_proxy,
+    find_available_port,
+    launch_infer_ui as launch_infer_ui_action,
+    launch_tensorboard as launch_tensorboard_action,
+    open_local_url,
+)
+from train_ui.dashboard import (
+    auto_refresh_dashboard as auto_refresh_dashboard_action,
+    refresh_dashboard as refresh_dashboard_action,
+    refresh_live_task_panel as refresh_live_task_panel_action,
+    refresh_text_dashboard as refresh_text_dashboard_action,
 )
 from train_ui.text import (
     format_duration,
-    format_duration_clock,
     render_dataset_import_result,
     render_pretrain_progress as render_pretrain_progress_html,
 )
@@ -140,12 +159,13 @@ TASK_LIFECYCLE_CACHE = {
 DEFAULT_PREPROCESS_WORKERS = 6
 DEFAULT_SPEECH_ENCODER = "vec768l12"
 DEFAULT_BATCH_SIZE = json.loads((ROOT / "configs_template" / "config_template.json").read_text(encoding="utf-8"))["train"]["batch_size"]
+CONFIG_TEMPLATE_PATH = ROOT / "configs_template" / "config_template.json"
+CONFIG_TINY_TEMPLATE_PATH = ROOT / "configs_template" / "config_tiny_template.json"
 
 TASK_STAGE_LABELS = {
     "resample": "第 1 步：重采样",
     "preprocess_flist_config": "第 2 步：生成配置与文件列表",
     "preprocess_hubert_f0": "第 3 步：提取特征",
-    "autobatch_probe": "Batch Size 探测",
     "train_main": "第 4 步：主模型训练",
     "train_diff": "第 5 步：扩散训练",
     "train_index": "第 6 步：训练音色增强索引",
@@ -480,113 +500,6 @@ def download_pretrain_asset(asset_key):
         return build_pretrain_guide_with_notice(asset_key, message, "error"), render_pretrain_status()
 
 
-def ensure_raw_dataset_parent():
-    RAW_DATASET_PARENT.mkdir(parents=True, exist_ok=True)
-
-
-def raw_dataset_display_name(dataset_name: str):
-    return build_raw_dataset_display_name(sanitize_dataset_name(dataset_name) or "")
-
-
-def ensure_model_workspace_dirs(model_name: str):
-    root = model_root_dir(model_name)
-    (root / "diffusion").mkdir(parents=True, exist_ok=True)
-    (root / "filelists").mkdir(parents=True, exist_ok=True)
-    return root
-
-
-def save_model_workspace(model_name: str, dataset_name: str):
-    model_name = sanitize_model_name(model_name)
-    dataset_name = model_name
-    train_dir = default_train_dir_for_dataset(dataset_name)
-    ensure_model_workspace_dirs(model_name)
-    payload = {
-        "model_name": model_name,
-        "dataset_name": dataset_name,
-        "train_dir": train_dir,
-        "updated_at": int(time.time()),
-    }
-    workspace_path = model_workspace_path(model_name)
-    if workspace_path.exists():
-        try:
-            previous = json.loads(workspace_path.read_text(encoding="utf-8"))
-            if "created_at" in previous:
-                payload["created_at"] = previous["created_at"]
-        except Exception:
-            pass
-    payload.setdefault("created_at", payload["updated_at"])
-    workspace_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    return payload
-
-
-def load_model_workspace(model_name: str):
-    workspace_path = model_workspace_path(model_name)
-    if not workspace_path.exists():
-        return None
-    try:
-        return json.loads(workspace_path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-
-
-def infer_workspace_dataset_name(model_name: str):
-    return sanitize_model_name(model_name)
-
-
-def scan_model_workspaces():
-    logs_dir = ROOT / "logs"
-    logs_dir.mkdir(parents=True, exist_ok=True)
-    models = []
-    for child in sorted(logs_dir.iterdir()):
-        if not child.is_dir() or child.name == "webui_tasks":
-            continue
-        workspace = load_model_workspace(child.name)
-        expected_dataset_name = infer_workspace_dataset_name(child.name)
-        if workspace is None or workspace.get("dataset_name") != expected_dataset_name:
-            workspace = save_model_workspace(child.name, expected_dataset_name)
-        models.append(workspace["model_name"])
-    if not models:
-        models.append("default_model")
-    return models
-
-
-def last_selected_model_path() -> Path:
-    return ROOT / "logs" / "last_selected_model.json"
-
-
-def save_last_selected_model(model_name: str):
-    safe_name = sanitize_model_name(model_name)
-    payload = {
-        "model_name": safe_name,
-        "updated_at": int(time.time()),
-    }
-    last_selected_model_path().write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    return safe_name
-
-
-def load_last_selected_model():
-    path = last_selected_model_path()
-    if not path.exists():
-        return None
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-    model_name = sanitize_model_name(payload.get("model_name"))
-    return model_name or None
-
-
-def resolve_model_choice(model_name: str):
-    safe_name = sanitize_model_name(model_name)
-    candidates = scan_model_workspaces()
-    if safe_name in candidates:
-        return safe_name
-    return candidates[0] if candidates else "default_model"
-
-
 def has_active_task() -> bool:
     proc = ACTIVE_TASK["proc"]
     thread = ACTIVE_TASK["thread"]
@@ -643,194 +556,47 @@ def load_model_speech_encoder(model_name: str):
     return normalize_speech_encoder_choice(config.get("model", {}).get("speech_encoder", DEFAULT_SPEECH_ENCODER))
 
 
-def render_model_workspace_summary(model_name: str):
-    model_name = sanitize_model_name(model_name)
-    workspace = load_model_workspace(model_name)
-    dataset_name = model_name
-    train_dir = workspace.get("train_dir", default_train_dir_for_dataset(dataset_name))
-    return render_model_workspace_summary_html(
-        ROOT,
-        model_name,
-        workspace,
-        dataset_name,
-        train_dir,
-        resolve_raw_dataset_dir(dataset_name),
-    )
-
-
 def create_model_workspace(new_model_name: str, current_dataset_name: str):
-    """新建模型工作区，或按模型名重新选中已有工作区。
-
-    训练页默认把“模型名”和“绑定的数据目录名”保持为一一对应，所以这里在
-    创建工作区时也会同步初始化对应的数据目录绑定关系。
-    """
-    if has_active_task():
-        current_model = sanitize_model_name(current_dataset_name) or "default_model"
-        current_dataset = sanitize_dataset_name(current_dataset_name) or current_model
-        return (
-            gr.update(value=current_model),
-            gr.update(value=current_model),
-            gr.update(value=current_model),
-            gr.update(value=current_dataset),
-            gr.update(value=default_train_dir_for_dataset(current_dataset)),
-            gr.update(value=suggest_model_name_for_dataset(current_dataset)),
-            speech_encoder_value_update(load_model_speech_encoder(current_model)),
-            render_model_workspace_summary(current_model),
-            render_dataset_import_result(active_task_block_message("新建模型工作区")),
-        )
-    model_name = sanitize_model_name(new_model_name)
-    dataset_name = model_name
-    workspace_exists = model_workspace_path(model_name).exists()
-    save_model_workspace(model_name, dataset_name)
-    save_last_selected_model(model_name)
-    return (
-        gr.update(choices=scan_model_workspaces(), value=model_name),
-        gr.update(value=model_name),
-        gr.update(value=model_name),
-        gr.update(value=dataset_name),
-        gr.update(value=default_train_dir_for_dataset(dataset_name)),
-        gr.update(value=suggest_model_name_for_dataset(dataset_name)),
-        speech_encoder_value_update(load_model_speech_encoder(model_name)),
-        render_model_workspace_summary(model_name),
-        render_dataset_import_result(
-            f"{'已切换到已有模型工作区' if workspace_exists else '已新建模型工作区'}：{model_name}；绑定模型数据目录：{dataset_name}"
-        ),
+    return create_model_workspace_action(
+        new_model_name,
+        current_dataset_name,
+        has_active_task_fn=has_active_task,
+        active_task_block_message_fn=active_task_block_message,
+        speech_encoder_value_update_fn=speech_encoder_value_update,
+        load_model_speech_encoder_fn=load_model_speech_encoder,
     )
 
 
 def switch_model_workspace(selected_model_name: str, current_model_name: str, current_dataset_name: str, current_train_dir: str, current_sync_token: str):
-    """把页面上下文切换到另一个模型工作区。
-
-    这个方法直接由“切换模型”下拉触发，所以必须在任务运行中尽早拦截，
-    避免页面先短暂切过去、随后又被恢复，造成错觉。
-    """
-    if has_active_task():
-        current_model = sanitize_model_name(ACTIVE_TASK.get("name") or "")
-        return (
-            gr.update(value=sanitize_model_name(current_model_name) or "default_model"),
-            gr.update(value=sanitize_model_name(current_model_name) or "default_model"),
-            gr.update(value=sanitize_model_name(current_model_name) or "default_model"),
-            gr.update(value=sanitize_dataset_name(current_dataset_name) or "default_dataset"),
-            gr.update(value=current_train_dir or default_train_dir_for_dataset(current_dataset_name)),
-            gr.update(value=current_sync_token),
-            speech_encoder_value_update(load_model_speech_encoder(current_model_name)),
-            render_model_workspace_summary(sanitize_model_name(current_model_name) or "default_model"),
-            render_dataset_import_result(active_task_block_message("切换模型")),
-            *show_active_task_block_dialog("切换模型"),
-        )
-    model_name = resolve_model_choice(selected_model_name)
-    dataset_name = infer_workspace_dataset_name(model_name)
-    save_model_workspace(model_name, dataset_name)
-    save_last_selected_model(model_name)
-    raw_dir_exists = (ROOT / resolve_raw_dataset_dir(dataset_name)).exists()
-    return (
-        gr.update(choices=scan_model_workspaces(), value=model_name),
-        gr.update(value=model_name),
-        gr.update(value=model_name),
-        gr.update(value=dataset_name),
-        gr.update(value=default_train_dir_for_dataset(dataset_name)),
-        gr.update(value=suggest_model_name_for_dataset(dataset_name)),
-        speech_encoder_value_update(load_model_speech_encoder(model_name)),
-        render_model_workspace_summary(model_name),
-        render_dataset_import_result(
-            f"已切换到模型工作区：{model_name}；绑定模型数据目录：{dataset_name}；数据目录：{'已存在' if raw_dir_exists else '未找到，请导入 wav 数据'}"
-        ),
-        gr.update(),
-        gr.update(visible=False),
+    return switch_model_workspace_action(
+        selected_model_name,
+        current_model_name,
+        current_dataset_name,
+        current_train_dir,
+        current_sync_token,
+        active_task_name=sanitize_model_name(ACTIVE_TASK.get("name") or ""),
+        has_active_task_fn=has_active_task,
+        speech_encoder_value_update_fn=speech_encoder_value_update,
+        load_model_speech_encoder_fn=load_model_speech_encoder,
+        active_task_block_message_fn=active_task_block_message,
+        show_active_task_block_dialog_fn=show_active_task_block_dialog,
     )
 
 
 def prepare_delete_model_workspace(selected_model_name: str):
-    """生成“删除模型工作区”确认弹窗需要的提示内容。"""
-    if has_active_task():
-        return (
-            "",
-            gr.update(visible=False),
-            gr.update(value=""),
-            gr.update(value=""),
-            render_dataset_import_result(active_task_block_message("删除模型工作区")),
-            *show_active_task_block_dialog("删除模型工作区"),
-        )
-    model_name = resolve_model_choice(selected_model_name)
-    model_dir = model_root_dir(model_name)
-    dataset_name = infer_workspace_dataset_name(model_name)
-    raw_dir = ROOT / resolve_raw_dataset_dir(dataset_name)
-    train_dir = ROOT / default_train_dir_for_dataset(dataset_name)
-    if not model_dir.exists() and not raw_dir.exists() and not train_dir.exists():
-        return (
-            f"**logs/{model_name}**、**{resolve_raw_dataset_dir(dataset_name).as_posix()}**、**{default_train_dir_for_dataset(dataset_name)}** 都不存在，无需删除。",
-            gr.update(visible=False),
-            gr.update(value=""),
-            gr.update(value=""),
-        )
-    message = (
-        f"确认删除：{model_dir.relative_to(ROOT).as_posix()}\n\n"
-        f"当前模型：{model_name}\n"
-        f"绑定模型数据目录：{dataset_name}\n\n"
-        "这个操作会一并删除以下内容：\n"
-        f"- logs/{model_name}\n"
-        f"- {resolve_raw_dataset_dir(dataset_name).as_posix()}\n"
-        f"- {default_train_dir_for_dataset(dataset_name)}"
-    )
-    return (
-        message,
-        gr.update(visible=True),
-        gr.update(value=model_name),
-        gr.update(value="workspace"),
-        gr.update(),
-        gr.update(),
-        gr.update(visible=False),
+    return prepare_delete_model_workspace_action(
+        selected_model_name,
+        has_active_task_fn=has_active_task,
+        active_task_block_message_fn=active_task_block_message,
+        show_active_task_block_dialog_fn=show_active_task_block_dialog,
     )
 
 
 def delete_model_workspace(selected_model_name: str):
-    """删除模型工作区及其绑定目录，并切回一个可用的工作区。"""
-    model_name = resolve_model_choice(selected_model_name)
-    model_dir = model_root_dir(model_name)
-    dataset_name = infer_workspace_dataset_name(model_name)
-    raw_dir = ROOT / resolve_raw_dataset_dir(dataset_name)
-    train_dir = ROOT / default_train_dir_for_dataset(dataset_name)
-    deleted_targets = []
-
-    for target in (model_dir, raw_dir, train_dir):
-        if target.exists():
-            shutil.rmtree(target)
-            deleted_targets.append(target.relative_to(ROOT).as_posix())
-
-    if not deleted_targets:
-        next_model = resolve_model_choice("default_model")
-        next_dataset = infer_workspace_dataset_name(next_model)
-        save_last_selected_model(next_model)
-        return (
-            gr.update(choices=scan_model_workspaces(), value=next_model),
-            gr.update(value=next_model),
-            gr.update(value=next_model),
-            gr.update(value=next_dataset),
-            gr.update(value=default_train_dir_for_dataset(next_dataset)),
-            gr.update(value=suggest_model_name_for_dataset(next_dataset)),
-            speech_encoder_value_update(load_model_speech_encoder(next_model)),
-            render_model_workspace_summary(next_model),
-            render_dataset_import_result(
-                f"logs/{model_name}、{resolve_raw_dataset_dir(dataset_name).as_posix()}、{default_train_dir_for_dataset(dataset_name)} 都不存在，无需删除。"
-            ),
-        )
-    remaining_models = scan_model_workspaces()
-    next_model = remaining_models[0] if remaining_models else "default_model"
-    next_dataset = infer_workspace_dataset_name(next_model)
-    save_model_workspace(next_model, next_dataset)
-    save_last_selected_model(next_model)
-    return (
-        gr.update(choices=remaining_models, value=next_model),
-        gr.update(value=next_model),
-        gr.update(value=next_model),
-        gr.update(value=next_dataset),
-        gr.update(value=default_train_dir_for_dataset(next_dataset)),
-        gr.update(value=suggest_model_name_for_dataset(next_dataset)),
-        speech_encoder_value_update(load_model_speech_encoder(next_model)),
-        render_model_workspace_summary(next_model),
-        render_dataset_import_result(
-            f"已删除模型相关目录：{'；'.join(deleted_targets)}；当前已切换到：{next_model}"
-        ),
+    return delete_model_workspace_action(
+        selected_model_name,
+        speech_encoder_value_update_fn=speech_encoder_value_update,
+        load_model_speech_encoder_fn=load_model_speech_encoder,
     )
 
 
@@ -917,139 +683,6 @@ def bind_workspace_dataset(model_name: str, dataset_name: str):
     return render_model_workspace_summary(model_name)
 
 
-def scan_dataset_candidates():
-    ensure_raw_dataset_parent()
-    candidates = []
-    for child in sorted(RAW_DATASET_PARENT.iterdir()):
-        if child.is_dir() and has_raw_dataset_wavs(child):
-            candidates.append(child.name)
-    if not candidates:
-        candidates.append("default_dataset")
-    return candidates
-
-def suggest_next_dataset_name():
-    ensure_raw_dataset_parent()
-    index = 1
-    while True:
-        candidate = f"speak {index}"
-        if not (RAW_DATASET_PARENT / candidate).exists():
-            return candidate
-        index += 1
-
-
-def infer_uploaded_dataset_name(uploaded_files):
-    if not uploaded_files:
-        return None
-    file_items = uploaded_files if isinstance(uploaded_files, list) else [uploaded_files]
-    parent_names = []
-    ignored_names = {"", ".", "..", "tmp", "temp", "gradio"}
-    for item in file_items:
-        original_name = getattr(item, "orig_name", "") or ""
-        parent_name = Path(original_name).parent.name if original_name else ""
-        if parent_name.lower() in ignored_names:
-            continue
-        if len(parent_name) >= 24 and all(ch in "0123456789abcdef" for ch in parent_name.lower()):
-            continue
-        parent_names.append(parent_name)
-    if not parent_names:
-        return None
-    unique_names = {name for name in parent_names if name}
-    if len(unique_names) == 1:
-        return unique_names.pop()
-    return None
-
-
-def import_dataset_directory(uploaded_files, dataset_name: str):
-    dataset_name = sanitize_dataset_name(dataset_name) or "default_dataset"
-    if not uploaded_files:
-        return render_dataset_import_result("请先选择一个数据集文件夹。"), gr.update(value=dataset_name)
-
-    target_relative_dir = resolve_raw_dataset_dir(dataset_name)
-    target_root = ROOT / target_relative_dir
-    target_root.mkdir(parents=True, exist_ok=True)
-
-    file_items = uploaded_files if isinstance(uploaded_files, list) else [uploaded_files]
-    copied = 0
-    overwritten = 0
-    for item in file_items:
-        source_path = Path(resolve_uploaded_path(item))
-        original_name = getattr(item, "orig_name", "") or ""
-        file_name = Path(original_name).name if original_name else source_path.name
-        if not file_name.lower().endswith(".wav"):
-            continue
-        destination = target_root / file_name
-        if destination.exists():
-            overwritten += 1
-        shutil.copyfile(source_path, destination)
-        copied += 1
-
-    if copied == 0:
-        return render_dataset_import_result("导入失败：没有检测到 wav 文件。请选择一个内部直接包含 `.wav` 文件的模型数据文件夹。"), gr.update(value=dataset_name)
-
-    return (
-        render_dataset_import_result(
-            f"本次已导入到：{target_relative_dir.as_posix()}；当前模型数据目录：{raw_dataset_display_name(dataset_name)}；导入音频数：{copied}；覆盖同名文件数：{overwritten}"
-        ),
-        gr.update(value=dataset_name),
-    )
-
-
-def refresh_dataset_name_suggestion():
-    return gr.update(value=suggest_next_dataset_name())
-
-
-def render_dataset_file_list(dataset_name: str):
-    dataset_dir = ROOT / resolve_raw_dataset_dir(dataset_name)
-    return render_dataset_file_list_html(ROOT, dataset_dir)
-
-
-def dataset_file_list_label(dataset_name: str):
-    dataset_dir = ROOT / resolve_raw_dataset_dir(dataset_name)
-    _, wav_count = count_raw_dataset_wavs(dataset_dir)
-    return build_dataset_file_list_label(wav_count)
-
-
-def render_dataset_import_status_for_dataset(dataset_name: str):
-    dataset_name = sanitize_dataset_name(dataset_name) or "default_dataset"
-    dataset_dir = ROOT / resolve_raw_dataset_dir(dataset_name)
-    return render_dataset_import_status_for_dataset_html(ROOT, dataset_dir)
-
-
-def delete_dataset_directory(dataset_name: str):
-    dataset_name = sanitize_dataset_name(dataset_name) or "default_dataset"
-    dataset_dir = ROOT / resolve_raw_dataset_dir(dataset_name)
-    current_train_dir = default_train_dir_for_dataset(dataset_name)
-    if not dataset_dir.exists():
-        return (
-            render_dataset_import_result(f"{dataset_dir.relative_to(ROOT).as_posix()} 不存在，无需删除。"),
-            gr.update(value=dataset_name),
-            render_dataset_file_list(dataset_name),
-            gr.update(value=dataset_name),
-            gr.update(value=current_train_dir),
-            gr.update(value=dataset_name),
-        )
-
-    if dataset_dir == RAW_DATASET_PARENT:
-        return (
-            render_dataset_import_result("禁止删除 dataset_raw 父目录。"),
-            gr.update(value=dataset_name),
-            render_dataset_file_list(dataset_name),
-            gr.update(value=dataset_name),
-            gr.update(value=current_train_dir),
-            gr.update(value=dataset_name),
-        )
-
-    shutil.rmtree(dataset_dir)
-    return (
-        render_dataset_import_result(f"已删除模型数据目录：{dataset_dir.relative_to(ROOT).as_posix()}"),
-        gr.update(value=dataset_name),
-        render_dataset_file_list(dataset_name),
-        gr.update(value=dataset_name),
-        gr.update(value=current_train_dir),
-        gr.update(value=dataset_name),
-    )
-
-
 def prepare_delete_dataset(dataset_name: str):
     if has_active_task():
         return (
@@ -1059,30 +692,11 @@ def prepare_delete_dataset(dataset_name: str):
             gr.update(value=""),
             *show_active_task_block_dialog("删除当前模型数据目录"),
         )
-    dataset_dir = ROOT / resolve_raw_dataset_dir(dataset_name)
-    if not dataset_dir.exists():
-        return (
-            f"**{dataset_dir.relative_to(ROOT).as_posix()}** 不存在，无需删除。",
-            gr.update(visible=False),
-            gr.update(value=""),
-            gr.update(value=""),
-            gr.update(),
-            gr.update(visible=False),
-        )
-    wav_count = len([path for path in dataset_dir.iterdir() if path.is_file() and path.suffix.lower() == ".wav"])
-    message = (
-        f"确认删除：{dataset_dir.relative_to(ROOT).as_posix()}\n\n"
-        f"该目录下共有 {wav_count} 个 wav 文件。\n"
-        "删除后不可恢复。"
-    )
-    return (
-        message,
-        gr.update(visible=True),
-        gr.update(value=dataset_name),
-        gr.update(value="dataset"),
-        gr.update(),
-        gr.update(visible=False),
-    )
+    return prepare_delete_dataset_action(dataset_name)
+
+
+def refresh_dataset_name_suggestion():
+    return gr.update(value=suggest_next_dataset_name())
 
 
 def detect_file(path_str: str):
@@ -1122,10 +736,6 @@ def render_button_updates(model_name: str = "44k", raw_dir: str = "default_datas
         gr.update(value=button_state["resample"]["value"], interactive=button_state["resample"]["interactive"]),
         gr.update(value=button_state["config"]["value"], interactive=button_state["config"]["interactive"]),
         gr.update(value=button_state["preprocess"]["value"], interactive=button_state["preprocess"]["interactive"]),
-        gr.update(
-            value="Batch Size 探测" if button_state["train"]["interactive"] else "Batch Size 探测（等待前置）",
-            interactive=button_state["train"]["interactive"],
-        ),
         gr.update(value=button_state["train"]["value"], interactive=button_state["train"]["interactive"]),
         gr.update(value=button_state["train_diff"]["value"], interactive=button_state["train_diff"]["interactive"]),
         gr.update(value=button_state["train_index"]["value"], interactive=button_state["train_index"]["interactive"]),
@@ -1171,379 +781,131 @@ def render_stage_alert(model_name: str = "44k", raw_dir: str = "default_dataset"
     return build_stage_alert_text(task_name, stage_label, is_running, succeeded)
 
 
-def detect_cuda_status():
-    try:
-        import torch
-    except Exception as exc:
-        return f"PyTorch 不可用：{exc}"
-    if not torch.cuda.is_available():
-        return "CUDA 不可用"
-    try:
-        device_name = torch.cuda.get_device_name(0)
-    except Exception:
-        device_name = "已检测到 CUDA 设备"
-    return f"CUDA 可用：{device_name}"
-
-
 def render_preflight_check(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "dataset/44k"):
-    model_name = sanitize_model_name(model_name)
-    stage_state = collect_stage_state(model_name, raw_dir, train_dir)
-    raw_relative_dir = resolve_raw_dataset_dir(raw_dir)
-    _, raw_wavs = count_raw_dataset_wavs(ROOT / raw_relative_dir)
-    train_speakers, train_wavs = count_training_wavs(ROOT / train_dir)
-    cuda_status = detect_cuda_status()
-
-    train_requirements = []
-    if "CUDA 可用" not in cuda_status:
-        train_requirements.append("主模型训练和扩散训练需要 Windows/Linux + NVIDIA GPU + CUDA 环境。")
-    if not get_sovits_g0_path().exists():
-        train_requirements.append(f"缺少 So-VITS 生成器底模：{get_sovits_g0_path().relative_to(ROOT).as_posix()}")
-    if not get_sovits_d0_path().exists():
-        train_requirements.append(f"缺少 So-VITS 判别器底模：{get_sovits_d0_path().relative_to(ROOT).as_posix()}")
-    if not get_diffusion_model_0_path().exists():
-        train_requirements.append(f"缺少扩散底模：{get_diffusion_model_0_path().relative_to(ROOT).as_posix()}")
-    if not get_rmvpe_path().exists():
-        train_requirements.append(f"缺少 RMVPE 预训练文件：{get_rmvpe_path().relative_to(ROOT).as_posix()}")
-    elif not is_rmvpe_asset_valid():
-        train_requirements.append(f"RMVPE 预训练文件已损坏，请重新导入：{get_rmvpe_path().relative_to(ROOT).as_posix()}")
-    contentvec_hf_dir = get_contentvec_hf_path()
-    if not (
-        (contentvec_hf_dir / "config.json").exists()
-        and (contentvec_hf_dir / "model.safetensors").exists()
-    ):
-        train_requirements.append(
-            f"缺少 ContentVec HF 模型目录：{contentvec_hf_dir.relative_to(ROOT).as_posix()}/"
-        )
-    if not (get_nsf_hifigan_model_path().exists() and get_nsf_hifigan_config_path().exists()):
-        train_requirements.append(f"缺少 NSF-HIFIGAN 声码器：{get_nsf_hifigan_model_path().parent.relative_to(ROOT).as_posix()}/")
-    if raw_wavs == 0:
-        train_requirements.append(f"{raw_relative_dir.as_posix()} 为空，无法开始完整训练流程。")
-    if train_wavs > 0 and train_speakers != 1:
-        train_requirements.append(f"处理后数据目录中只能保留 1 个训练数据子目录，当前检测到 {train_speakers} 个。")
-
-    summary = stage_state["summary"]
-    for needle, message in (
-        ("3. 提取特征：等待上一步", "特征预处理还不能开始，先补齐配置与文件列表。"),
-        ("4. 主模型训练：等待上一步", "主模型训练还不能开始，先完成特征预处理。"),
-        ("5. 扩散训练：等待上一步", "扩散训练还不能开始，先得到可用的主模型结果。"),
-        ("6. 训练音色增强索引：等待上一步", "音色增强索引还不能开始，先得到可用的主模型结果。"),
-    ):
-        if needle in summary:
-            train_requirements.append(message)
-
-    next_step_line = stage_state["next_step"]
-
-    head = [
-        (
-            f"当前模型：{model_name}；当前模型数据目录：{raw_relative_dir.as_posix()}",
-            "#1f8f4c" if raw_wavs > 0 else "#d97706",
-        ),
-        (
-            f"环境：{cuda_status}",
-            "#1f8f4c" if "CUDA 可用" in cuda_status else "#c0392b",
-        ),
-        (
-            f"当前数据：{raw_relative_dir.as_posix()}，{raw_wavs} 个 wav",
-            "#1f8f4c" if raw_wavs > 0 else "#c0392b",
-        ),
-        (
-            f"处理后数据：{train_dir}，{train_wavs} 个 wav",
-            "#1f8f4c" if train_wavs > 0 else "#d97706",
-        ),
-    ]
-
-    info_rows = []
-    for line, color in head:
-        info_rows.append(
-            '<div class="stage-check-row">'
-            f'<div class="stage-check-title"><span class="stage-dot" style="color:{color};">●</span>{line}</div>'
-            '</div>'
-        )
-
-    return build_preflight_check_html(info_rows, train_requirements)
+    return render_preflight_check_html(
+        model_name,
+        raw_dir,
+        train_dir,
+        get_sovits_g0_path_fn=get_sovits_g0_path,
+        get_sovits_d0_path_fn=get_sovits_d0_path,
+        get_diffusion_model_0_path_fn=get_diffusion_model_0_path,
+        get_rmvpe_path_fn=get_rmvpe_path,
+        is_rmvpe_asset_valid_fn=is_rmvpe_asset_valid,
+        get_contentvec_hf_path_fn=get_contentvec_hf_path,
+        get_nsf_hifigan_model_path_fn=get_nsf_hifigan_model_path,
+        get_nsf_hifigan_config_path_fn=get_nsf_hifigan_config_path,
+    )
 
 
 def task_runtime_text():
-    proc = ACTIVE_TASK["proc"]
-    thread = ACTIVE_TASK["thread"]
-    pipeline_name = ACTIVE_TASK["pipeline_name"]
-    if proc is None and not (thread is not None and thread.is_alive()):
-        return "当前没有运行中的任务。"
-    started = ACTIVE_TASK["started_at"] or time.time()
-    elapsed = int(time.time() - started)
-    elapsed_text = format_duration(elapsed)
-    if proc is None and thread is not None and thread.is_alive():
-        status = "运行中（流程编排中）"
-    else:
-        status = "运行中" if proc.poll() is None else f"已结束（退出码 {proc.returncode}）"
-    task_display = PIPELINE_LABELS.get(pipeline_name, pipeline_name) if pipeline_name else ACTIVE_TASK["name"]
-    return (
-        f"任务：{task_display}\n"
-        f"阶段：{current_stage_label()}\n"
-        f"状态：{status}\n"
-        f"已运行：{elapsed_text}\n"
-        f"日志：{ACTIVE_TASK['log_path']}\n"
-        f"命令：{' '.join(ACTIVE_TASK['cmd']) if ACTIVE_TASK['cmd'] else '等待当前子步骤启动'}"
+    return task_runtime_text_render(
+        ACTIVE_TASK,
+        current_stage_label_fn=current_stage_label,
+        pipeline_labels=PIPELINE_LABELS,
     )
 
 
 def render_runtime_banner():
-    proc = ACTIVE_TASK["proc"]
-    thread = ACTIVE_TASK["thread"]
-    pipeline_name = ACTIVE_TASK["pipeline_name"]
-    started = ACTIVE_TASK["started_at"]
-    is_running = (proc is not None and proc.poll() is None) or (thread is not None and thread.is_alive())
-
-    task_display = PIPELINE_LABELS.get(pipeline_name, pipeline_name) if pipeline_name else current_stage_label()
-    elapsed_text = format_duration_clock(max(0, int(time.time() - started))) if started is not None else ""
-    exit_code = proc.returncode if proc is not None else None
-    return build_runtime_banner_text(started, task_display, is_running, elapsed_text, exit_code)
-
-
-def tail_log(path: Path, max_lines: int = 80):
-    if path is None or not path.exists():
-        return "日志文件尚不存在。"
-    with path.open("r", encoding="utf-8", errors="ignore") as f:
-        lines = f.readlines()
-    return "".join(lines[-max_lines:]) if lines else "日志暂时为空。"
-
-
-def extract_log_highlights(path: Path, max_lines: int = 30):
-    if path is None or not path.exists():
-        return "当前还没有重点提示。"
-    keywords = (
-        "error",
-        "exception",
-        "traceback",
-        "warning",
-        "failed",
-        "runtimeerror",
-        "assert",
-        "nan",
-        "inf",
-        "oom",
-        "cuda",
+    return render_runtime_banner_text(
+        ACTIVE_TASK,
+        current_stage_label_fn=current_stage_label,
+        pipeline_labels=PIPELINE_LABELS,
     )
-    with path.open("r", encoding="utf-8", errors="ignore") as f:
-        lines = f.readlines()
-    matched = [line for line in lines if any(keyword in line.lower() for keyword in keywords)]
-    if not matched:
-        return "最近日志里没有明显的错误或警告。"
-    return "".join(matched[-max_lines:])
-
-
-def render_auto_batch_probe_summary(path: Path):
-    """显示自动 batch size 的极限值和实际推荐值。"""
-    if path is None or not path.exists():
-        return "当前还没有自动 batch size 结果。"
-
-    max_value, recommended_value = parse_auto_batch_probe_values(path)
-    if max_value not in {"—", "", None} and recommended_value not in {"—", "", None}:
-        return (
-            f"极限每卡 batch size：{max_value}\n"
-            f"实际推荐 batch size：{recommended_value}"
-        )
-
-    with path.open("r", encoding="utf-8", errors="ignore") as f:
-        content = f.read()
-
-    if "[AutoBatch]" in content:
-        return "自动 batch size 探测进行中，等待结果..."
-
-    return "当前还没有自动 batch size 结果。"
-
-
-def parse_auto_batch_probe_values(path: Path):
-    """从任务日志中提取自动 batch size 的极限值与推荐值。"""
-    if path is None or not path.exists():
-        return "—", "—"
-
-    with path.open("r", encoding="utf-8", errors="ignore") as f:
-        lines = f.read().splitlines()
-
-    max_value = None
-    recommended_value = None
-
-    for line in lines:
-        summary_match = re.search(
-            r"\[AutoBatch\].*极限每卡 batch size：(\d+).*推荐值：(\d+)",
-            line,
-        )
-        if summary_match:
-            max_value = summary_match.group(1)
-            recommended_value = summary_match.group(2)
-
-    if max_value and recommended_value:
-        return max_value, recommended_value
-
-    for line in lines:
-        stripped = line.strip()
-        if not stripped.startswith("{"):
-            continue
-        try:
-            payload = json.loads(stripped)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(payload, dict):
-            continue
-        batch_size = payload.get("batch_size")
-        ok = payload.get("ok")
-        if ok is True and isinstance(batch_size, int):
-            max_value = str(batch_size)
-        elif ok is False and max_value is not None:
-            break
-
-    if max_value is not None:
-        recommended_value = str(max(1, int(int(max_value) * 0.75)))
-        return str(max_value), recommended_value
-
-    return "—", "—"
-
-
-def apply_detected_batch_size(mode: str):
-    """把探测结果里的极限值或推荐值填入当前训练 batch size。"""
-    log_path = ACTIVE_TASK["log_path"]
-    max_value, recommended_value = parse_auto_batch_probe_values(log_path)
-    selected = recommended_value if mode == "recommended" else max_value
-    if selected in {"—", "", None}:
-        return gr.update(), "当前还没有可用的 Batch Size 探测结果。"
-    return gr.update(value=int(selected)), f"已将当前训练 batch size 设置为 {selected}。"
 
 
 def load_model_batch_size(model_name: str):
-    """读取当前模型工作区使用的 batch size；无配置时回落到模板默认值。"""
-    model_name = sanitize_model_name(model_name) or "default_model"
-    config_path = model_config_path(model_name)
-    if not config_path.exists():
-        return DEFAULT_BATCH_SIZE
-    try:
-        config = json.loads(config_path.read_text(encoding="utf-8"))
-        return int(config.get("train", {}).get("batch_size", DEFAULT_BATCH_SIZE))
-    except Exception:
-        return DEFAULT_BATCH_SIZE
+    return load_model_batch_size_sync(model_name, CONFIG_TEMPLATE_PATH, DEFAULT_BATCH_SIZE)
+
+
+def load_template_batch_size() -> int:
+    return load_template_batch_size_sync(CONFIG_TEMPLATE_PATH, DEFAULT_BATCH_SIZE)
+
+
+def persist_batch_size(model_name: str, batch_size: int | float | None):
+    return persist_batch_size_sync(
+        model_name,
+        batch_size,
+        config_template_path=CONFIG_TEMPLATE_PATH,
+        config_tiny_template_path=CONFIG_TINY_TEMPLATE_PATH,
+        default_batch_size=DEFAULT_BATCH_SIZE,
+    )
 
 
 def render_task_panel_snapshot(model_name: str, raw_dir: str, train_dir: str):
-    log_path = ACTIVE_TASK["log_path"]
-    max_batch_size, recommended_batch_size = parse_auto_batch_probe_values(log_path)
-    return (
-        render_stage_alert(model_name, raw_dir, train_dir),
-        render_runtime_banner(),
-        max_batch_size,
-        recommended_batch_size,
-        current_task_feedback(model_name, raw_dir, train_dir),
-        task_runtime_text(),
-        render_log_highlights(log_path),
-        tail_log(log_path),
+    return render_task_panel_snapshot_text(
+        model_name,
+        raw_dir,
+        train_dir,
+        active_task=ACTIVE_TASK,
+        render_stage_alert_fn=render_stage_alert,
+        current_task_feedback_fn=current_task_feedback,
+        current_stage_label_fn=current_stage_label,
+        pipeline_labels=PIPELINE_LABELS,
     )
 
 
 def refresh_live_task_panel(model_name: str, raw_dir: str, train_dir: str):
-    """只刷新定时器负责的任务状态区域。"""
-    proc = ACTIVE_TASK["proc"]
-    thread = ACTIVE_TASK["thread"]
-    is_running = (proc is not None and proc.poll() is None) or (thread is not None and thread.is_alive())
-    exit_code = proc.returncode if proc is not None and proc.poll() is not None else None
-    lifecycle_signature = (
-        ACTIVE_TASK["name"],
-        ACTIVE_TASK["pipeline_name"],
-        ACTIVE_TASK["stage_label"],
-        is_running,
-        exit_code,
-    )
-    if TASK_LIFECYCLE_CACHE["signature"] != lifecycle_signature:
-        TASK_LIFECYCLE_CACHE["signature"] = lifecycle_signature
-        TASK_LIFECYCLE_CACHE["token"] = str(int(TASK_LIFECYCLE_CACHE["token"]) + 1)
-        task_refresh_token_update = gr.update(value=TASK_LIFECYCLE_CACHE["token"])
-    else:
-        task_refresh_token_update = gr.skip()
-
-    button_updates = render_button_updates(model_name, raw_dir, train_dir)
-    workspace_control_updates = render_workspace_control_updates()
-    return (
-        *render_task_panel_snapshot(model_name, raw_dir, train_dir),
-        *button_updates,
-        *workspace_control_updates,
-        task_refresh_token_update,
+    return refresh_live_task_panel_action(
+        model_name,
+        raw_dir,
+        train_dir,
+        active_task=ACTIVE_TASK,
+        task_lifecycle_cache=TASK_LIFECYCLE_CACHE,
+        render_button_updates_fn=render_button_updates,
+        render_workspace_control_updates_fn=render_workspace_control_updates,
+        render_task_panel_snapshot_fn=render_task_panel_snapshot,
     )
 
 
 def refresh_dashboard(model_name: str, raw_dir: str, train_dir: str):
-    """在用户显式操作后刷新训练页的大部分状态快照。"""
-    button_updates = render_button_updates(model_name, raw_dir, train_dir)
-    workspace_control_updates = render_workspace_control_updates()
-    (
-        stage_alert_text,
-        runtime_banner_text,
-        max_batch_size,
-        recommended_batch_size,
-        task_feedback,
-        runtime_text,
-        log_highlights,
-        log_tail,
-    ) = render_task_panel_snapshot(model_name, raw_dir, train_dir)
-    return (
-        render_model_workspace_summary(model_name),
-        gr.update(label=dataset_file_list_label(raw_dir)),
-        render_dataset_file_list(raw_dir),
-        render_stage_judgement(model_name, raw_dir, train_dir),
-        render_preflight_check(model_name, raw_dir, train_dir),
-        stage_alert_text,
-        runtime_banner_text,
-        max_batch_size,
-        recommended_batch_size,
-        load_model_batch_size(model_name),
-        task_feedback,
-        runtime_text,
-        log_highlights,
-        log_tail,
-        *button_updates,
-        *workspace_control_updates,
+    return refresh_dashboard_action(
+        model_name,
+        raw_dir,
+        train_dir,
+        render_model_workspace_summary_fn=render_model_workspace_summary,
+        dataset_file_list_label_fn=dataset_file_list_label,
+        render_dataset_file_list_fn=render_dataset_file_list,
+        render_stage_judgement_fn=render_stage_judgement,
+        render_preflight_check_fn=render_preflight_check,
+        render_task_panel_snapshot_fn=render_task_panel_snapshot,
+        load_model_batch_size_fn=load_model_batch_size,
+        render_button_updates_fn=render_button_updates,
+        render_workspace_control_updates_fn=render_workspace_control_updates,
     )
 
 
 def refresh_text_dashboard(model_name: str, raw_dir: str, train_dir: str):
-    log_path = ACTIVE_TASK["log_path"]
-    max_batch_size, recommended_batch_size = parse_auto_batch_probe_values(log_path)
-    return (
-        render_model_workspace_summary(model_name),
-        gr.update(label=dataset_file_list_label(raw_dir)),
-        render_dataset_file_list(raw_dir),
-        render_stage_judgement(model_name, raw_dir, train_dir),
-        render_preflight_check(model_name, raw_dir, train_dir),
-        render_stage_alert(model_name, raw_dir, train_dir),
-        max_batch_size,
-        recommended_batch_size,
-        current_task_feedback(model_name, raw_dir, train_dir),
-        task_runtime_text(),
-        render_log_highlights(log_path),
-        tail_log(log_path),
+    return refresh_text_dashboard_action(
+        model_name,
+        raw_dir,
+        train_dir,
+        active_task=ACTIVE_TASK,
+        render_model_workspace_summary_fn=render_model_workspace_summary,
+        dataset_file_list_label_fn=dataset_file_list_label,
+        render_dataset_file_list_fn=render_dataset_file_list,
+        render_stage_judgement_fn=render_stage_judgement,
+        render_preflight_check_fn=render_preflight_check,
+        render_stage_alert_fn=render_stage_alert,
+        current_task_feedback_fn=current_task_feedback,
+        task_runtime_text_fn=task_runtime_text,
+        tail_log_fn=tail_log,
     )
 
 
 def auto_refresh_dashboard(model_name: str, raw_dir: str, train_dir: str):
-    try:
-        return refresh_text_dashboard(model_name, raw_dir, train_dir)
-    except Exception as exc:
-        log_path = ACTIVE_TASK["log_path"]
-        safe_model_name = sanitize_model_name(model_name)
-        safe_raw_dir = sanitize_dataset_name(raw_dir) or safe_model_name
-        safe_train_dir = train_dir or default_train_dir_for_dataset(safe_raw_dir)
-        fallback_message = f"自动刷新异常：{type(exc).__name__}: {exc}"
-        return (
-            render_model_workspace_summary(safe_model_name),
-            gr.update(label=dataset_file_list_label(safe_raw_dir)),
-            render_dataset_file_list(safe_raw_dir),
-            '<div class="stage-check-row"><div class="stage-check-title"><span class="stage-dot" style="color:#c0392b;">●</span>自动刷新失败，请稍后重试或手动点击刷新任务状态。</div></div>',
-            render_preflight_check(safe_model_name, safe_raw_dir, safe_train_dir),
-            render_stage_alert(safe_model_name, safe_raw_dir, safe_train_dir),
-            "—",
-            "—",
-            fallback_message,
-            fallback_message,
-            extract_log_highlights(log_path),
-            tail_log(log_path),
-        )
+    return auto_refresh_dashboard_action(
+        model_name,
+        raw_dir,
+        train_dir,
+        active_task=ACTIVE_TASK,
+        refresh_text_dashboard_fn=refresh_text_dashboard,
+        render_model_workspace_summary_fn=render_model_workspace_summary,
+        dataset_file_list_label_fn=dataset_file_list_label,
+        render_dataset_file_list_fn=render_dataset_file_list,
+        render_preflight_check_fn=render_preflight_check,
+        render_stage_alert_fn=render_stage_alert,
+        tail_log_fn=tail_log,
+    )
 
 
 def set_active_task(task_name: str, cmd: Optional[List[str]], log_path: Path, proc=None, pipeline_name: Optional[str] = None):
@@ -1639,19 +1001,6 @@ def launch_preprocess(model_name: str, train_dir: str):
     )
 
 
-def launch_autobatch_probe(model_name: str):
-    """独立启动 batch size 探测。"""
-    return launch_autobatch_probe_task(
-        model_name,
-        active_task=ACTIVE_TASK,
-        task_log_dir=TASK_LOG_DIR,
-        task_stage_labels=TASK_STAGE_LABELS,
-        set_active_task_fn=set_active_task,
-        task_runtime_text_fn=task_runtime_text,
-        tail_log_fn=tail_log,
-    )
-
-
 def launch_train(model_name: str, batch_size: int | float | None = None):
     """启动第 4 步：主模型训练。"""
     return launch_train_task(
@@ -1733,156 +1082,11 @@ def launch_pipeline_train_main(model_name: str, raw_dir: str, train_dir: str, sp
 
 
 def launch_tensorboard():
-    tb_cmd = [sys.executable, "-m", "tensorboard.main", "--logdir=logs", "--port=6006"]
-    current = ACTIVE_TASK["proc"]
-    if current is not None and current.poll() is None:
-        return "当前已有训练任务在运行。TensorBoard 不占用训练槽位，请手动在终端启动。"
-    subprocess.Popen(tb_cmd, cwd=ROOT, start_new_session=True)
-    opened = open_local_url("http://127.0.0.1:6006")
-    if opened:
-        message = "已启动并尝试打开训练监控：http://127.0.0.1:6006"
-    else:
-        message = "训练监控已启动，但浏览器没有成功打开。请手动访问：http://127.0.0.1:6006"
-    set_ui_notice(message)
-    return message
-
-
-def open_local_url(url: str) -> bool:
-    """尽量在当前系统里拉起本机浏览器打开指定地址。"""
-    try:
-        if webbrowser.open(url):
-            return True
-    except Exception:
-        pass
-
-    system_name = platform.system()
-    try:
-        if system_name == "Darwin":
-            subprocess.Popen(["/usr/bin/open", url], cwd=ROOT, start_new_session=True)
-            return True
-        if system_name == "Windows":
-            os.startfile(url)  # type: ignore[attr-defined]
-            return True
-        if system_name == "Linux":
-            subprocess.Popen(["/usr/bin/xdg-open", url], cwd=ROOT, start_new_session=True)
-            return True
-    except Exception:
-        return False
-    return False
-
-
-def set_ui_notice(message: str, ttl_seconds: int = 15):
-    """保存一条短时可见的页面提示，避免被定时刷新立即覆盖。"""
-    UI_NOTICE["message"] = message
-    UI_NOTICE["expires_at"] = time.time() + ttl_seconds
-
-
-def render_log_highlights(path: Path):
-    """优先显示短时页面提示，其次回退到日志高亮。"""
-    expires_at = UI_NOTICE.get("expires_at", 0.0) or 0.0
-    message = UI_NOTICE.get("message")
-    if message and time.time() < expires_at:
-        return message
-    if message:
-        UI_NOTICE["message"] = None
-        UI_NOTICE["expires_at"] = 0.0
-    return extract_log_highlights(path)
+    return launch_tensorboard_action(root=ROOT, active_task=ACTIVE_TASK, ui_notice=UI_NOTICE)
 
 
 def launch_infer_ui():
-    """在当前 Python 环境中打开或拉起推理页面。
-
-    这里会记录当前训练页会话启动过的推理进程，避免误打开别的旧端口服务，
-    特别是升级到 Gradio 4 后，环境不一致时这个问题会更明显。
-    """
-    try:
-        existing_proc = INFER_UI_STATE["proc"]
-        existing_port = INFER_UI_STATE["port"]
-        if existing_proc is not None and existing_proc.poll() is None and existing_port:
-            infer_url = f"http://127.0.0.1:{existing_port}"
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                if sock.connect_ex(("127.0.0.1", existing_port)) == 0:
-                    if open_local_url(infer_url):
-                        message = f"已打开当前会话的推理页面：{infer_url}"
-                    else:
-                        message = f"推理页面已就绪，但浏览器没有成功打开。请手动访问：{infer_url}"
-                    set_ui_notice(message)
-                    return message
-
-        env = os.environ.copy()
-        env["OPEN_BROWSER"] = "0"
-        infer_port = find_available_port(7860)
-        infer_url = f"http://127.0.0.1:{infer_port}"
-        env["GRADIO_SERVER_PORT"] = str(infer_port)
-        env["GRADIO_ANALYTICS_ENABLED"] = "False"
-        proc = subprocess.Popen(
-            [sys.executable, "app_infer.py"],
-            cwd=ROOT,
-            env=env,
-            start_new_session=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-
-        for _ in range(20):
-            if proc.poll() is not None:
-                return f"推理页面启动失败：app_infer.py 已退出（退出码 {proc.returncode}）。请先在终端单独运行并查看报错。"
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                if sock.connect_ex(("127.0.0.1", infer_port)) == 0:
-                    INFER_UI_STATE["proc"] = proc
-                    INFER_UI_STATE["port"] = infer_port
-                    if open_local_url(infer_url):
-                        message = f"已启动并打开推理页面：{infer_url}"
-                    else:
-                        message = f"推理页面已启动，但浏览器没有成功打开。请手动访问：{infer_url}"
-                    set_ui_notice(message)
-                    return message
-            time.sleep(0.25)
-
-        INFER_UI_STATE["proc"] = proc
-        INFER_UI_STATE["port"] = infer_port
-        message = f"推理页面正在启动中：{infer_url}；如果浏览器没有自动打开，可手动访问这个地址。"
-        set_ui_notice(message)
-        return message
-    except Exception as exc:
-        message = f"打开推理页面失败：{type(exc).__name__}: {exc}"
-        set_ui_notice(message)
-        return message
-
-
-def find_available_port(default_port: int, max_tries: int = 20):
-    env_port = os.environ.get("GRADIO_SERVER_PORT")
-    if env_port:
-        try:
-            return int(env_port)
-        except ValueError:
-            pass
-
-    for offset in range(max_tries):
-        port = default_port + offset
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            try:
-                sock.bind(("127.0.0.1", port))
-                return port
-            except OSError:
-                continue
-    raise OSError(f"无法在 {default_port}-{default_port + max_tries - 1} 范围内找到可用端口。")
-
-
-def ensure_localhost_bypass_proxy():
-    """确保本地回环地址不会误走系统代理，避免 Gradio 本地可达性探测失败。"""
-    bypass_hosts = ["127.0.0.1", "localhost"]
-    for key in ("NO_PROXY", "no_proxy"):
-        current = os.environ.get(key, "")
-        entries = [item.strip() for item in current.split(",") if item.strip()]
-        changed = False
-        for host in bypass_hosts:
-            if host not in entries:
-                entries.append(host)
-                changed = True
-        if changed or not current:
-            os.environ[key] = ",".join(entries)
+    return launch_infer_ui_action(root=ROOT, infer_ui_state=INFER_UI_STATE, ui_notice=UI_NOTICE)
 
 
 with gr.Blocks(
@@ -2019,38 +1223,22 @@ with gr.Blocks(
                 pipeline_prep_btn = gr.Button("一键执行 1-3 步", elem_classes=["primary-action"])
             gr.Markdown(
                 "#### Batch Size 说明\n"
-                "- `batch size` 可以理解为：**一次送进 GPU 同时训练的样本量**。\n"
-                "- 一般来说，`batch size` 越大，训练吞吐越高；但太大容易把显存和整机资源吃满。\n"
-                "- 推荐先做一次 `Batch Size 探测`，再决定正式训练时实际使用多少。"
+                "- `batch size` 可以理解为：**一次送进 GPU 同时训练的样本量**。 当前项目默认 `8`。\n"
+                "- 一般来说，`batch size` 越大，训练吞吐越高；但太大容易把显存和整机资源吃满，Windows 桌面也会明显变卡。太小影响训练效率，表现为 训练模型所用时间长。\n"
+                "- 实用经验是：**GPU 利用率大致在 80% 到接近 100% 波动**，往往已经是比较合适的区间，这样训练过程中还可以开个网页看个视频，再高的话就明显卡顿了。\n"
+                "- `8GB` 显卡建议选择 `8`，`12GB` 显卡建议先调整到 `12`；开启训练运行几分钟后，打开资源管理器，查看当前GPU使用率，小于 80% 时，点击 停止当前任务 ，将此值加2，再次开启训练，看GPU使用率。一直在100%时，点击 停止当前任务 ，将此值减2，再看GPU使用率。调整到合适为止。\n"
+            )
+            train_batch_size_value = gr.Number(
+                label="当前训练使用 batch size（可改）",
+                value=load_model_batch_size(initial_model_name),
+                precision=0,
+                minimum=1,
+                info="主模型训练实际会使用这个值。修改后会立即同步到当前模型配置和模板配置。建议先从较保守的值开始，训练稳定后再逐步上调。",
             )
             with gr.Row():
-                autobatch_probe_btn = gr.Button("Batch Size 探测", elem_classes=["secondary-action"])
                 train_btn = gr.Button("4. 启动主模型训练", elem_classes=["primary-action"])
             with gr.Row():
                 pipeline_train_btn = gr.Button("一键执行到主模型训练", elem_classes=["primary-action"])
-            with gr.Row():
-                auto_batch_probe_max = gr.Textbox(
-                    label="探测极限值",
-                    value=parse_auto_batch_probe_values(ACTIVE_TASK["log_path"])[0],
-                    interactive=False,
-                    info="表示这台机器在当前配置下，自动探测到的“最大可跑每卡 batch size”。它更接近极限值，不一定适合边训练边做其他事情。",
-                )
-                auto_batch_probe_recommended = gr.Textbox(
-                    label="推荐值",
-                    value=parse_auto_batch_probe_values(ACTIVE_TASK["log_path"])[1],
-                    interactive=False,
-                    info="表示在极限值基础上预留安全余量后的建议值。通常更适合作为日常训练起点。",
-                )
-                train_batch_size_value = gr.Number(
-                    label="当前训练使用 batch size（可改）",
-                    value=load_model_batch_size(initial_model_name),
-                    precision=0,
-                    minimum=1,
-                    info="主模型训练实际会使用这个值。你可以手动改小一点，给系统和桌面操作留更多余量。",
-                )
-            with gr.Row():
-                use_recommended_batch_btn = gr.Button("采用推荐值", elem_classes=["info-action"])
-                use_max_batch_btn = gr.Button("采用极限值", elem_classes=["secondary-action"])
             gr.Markdown("### 进阶训练")
             with gr.Row():
                 train_diff_btn = gr.Button("5. 启动扩散训练", elem_classes=["secondary-action"])
@@ -2069,9 +1257,7 @@ with gr.Blocks(
         with gr.Column(scale=12, elem_classes=["section-card"]):
             gr.Markdown("### 运行日志")
             task_panel_timer = gr.Timer(value=1, active=True)
-            task_log_highlights = gr.Textbox(label="错误与操作提示", value=render_log_highlights(ACTIVE_TASK["log_path"]), lines=6)
-            with gr.Accordion("查看运行日志", open=False):
-                task_log = gr.Textbox(label="最近日志", value="日志尚不存在。", lines=12)
+            task_log = gr.Textbox(label="最近日志", value="日志尚不存在。", lines=16)
 
     refresh_outputs = [
         workspace_summary,
@@ -2081,19 +1267,15 @@ with gr.Blocks(
         preflight_check,
         stage_alert,
         runtime_banner,
-        auto_batch_probe_max,
-        auto_batch_probe_recommended,
         train_batch_size_value,
         task_message,
         task_status,
-        task_log_highlights,
         task_log,
         pipeline_prep_btn,
         pipeline_train_btn,
         resample_btn,
         config_btn,
         preprocess_btn,
-        autobatch_probe_btn,
         train_btn,
         train_diff_btn,
         train_index_btn,
@@ -2109,11 +1291,8 @@ with gr.Blocks(
         stage_judgement,
         preflight_check,
         stage_alert,
-        auto_batch_probe_max,
-        auto_batch_probe_recommended,
         task_message,
         task_status,
-        task_log_highlights,
         task_log,
     ]
 
@@ -2125,18 +1304,14 @@ with gr.Blocks(
         [
             stage_alert,
             runtime_banner,
-            auto_batch_probe_max,
-            auto_batch_probe_recommended,
             task_message,
             task_status,
-            task_log_highlights,
             task_log,
             pipeline_prep_btn,
             pipeline_train_btn,
             resample_btn,
             config_btn,
             preprocess_btn,
-            autobatch_probe_btn,
             train_btn,
             train_diff_btn,
             train_index_btn,
@@ -2326,19 +1501,10 @@ with gr.Blocks(
     preprocess_btn.click(launch_preprocess, [train_model_name, dataset_train_dir], [task_message, task_status, task_log], show_api=False).then(
         refresh_dashboard, [train_model_name, dataset_source_dir, dataset_train_dir], refresh_outputs, show_api=False
     )
-    autobatch_probe_btn.click(launch_autobatch_probe, [train_model_name], [task_message, task_status, task_log], show_api=False).then(
-        refresh_dashboard, [train_model_name, dataset_source_dir, dataset_train_dir], refresh_outputs, show_api=False
-    )
-    use_recommended_batch_btn.click(
-        lambda: apply_detected_batch_size("recommended"),
-        [],
-        [train_batch_size_value, task_log_highlights],
-        show_api=False,
-    )
-    use_max_batch_btn.click(
-        lambda: apply_detected_batch_size("max"),
-        [],
-        [train_batch_size_value, task_log_highlights],
+    train_batch_size_value.change(
+        persist_batch_size,
+        [train_model_name, train_batch_size_value],
+        [train_batch_size_value, task_message],
         show_api=False,
     )
     train_btn.click(launch_train, [train_model_name, train_batch_size_value], [task_message, task_status, task_log], show_api=False).then(
@@ -2362,15 +1528,15 @@ with gr.Blocks(
     stop_btn.click(stop_task, [], [task_message, task_status, task_log], show_api=False).then(
         refresh_dashboard, [train_model_name, dataset_source_dir, dataset_train_dir], refresh_outputs, show_api=False
     )
-    tensorboard_btn.click(launch_tensorboard, [], [task_log_highlights], show_api=False)
-    open_infer_btn.click(launch_infer_ui, [], [task_log_highlights], show_api=False)
+    tensorboard_btn.click(launch_tensorboard, [], [task_message], show_api=False)
+    open_infer_btn.click(launch_infer_ui, [], [task_message], show_api=False)
     app.load(auto_refresh_dashboard, [train_model_name, dataset_source_dir, dataset_train_dir], auto_refresh_outputs, show_api=False)
 
     ensure_localhost_bypass_proxy()
     server_port = find_available_port(7861)
 
     if os.environ.get("OPEN_BROWSER", "1") != "0":
-        open_local_url(f"http://127.0.0.1:{server_port}")
+        open_local_url(f"http://127.0.0.1:{server_port}", root=ROOT)
     app.launch(server_name="127.0.0.1", server_port=server_port, share=False)
 
 

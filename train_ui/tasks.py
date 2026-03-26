@@ -310,31 +310,6 @@ def launch_preprocess(
     )
 
 
-def launch_autobatch_probe(model_name: str, *, active_task: dict, task_log_dir: Path, task_stage_labels: dict, set_active_task_fn: Callable, task_runtime_text_fn: Callable[[], str], tail_log_fn: Callable[[Path], str]):
-    """独立启动 batch size 探测，不进入正式训练。"""
-    model_name = sanitize_model_name(model_name)
-    ensure_runtime_base_models(model_name)
-    return start_task(
-        "autobatch_probe",
-        [
-            sys.executable,
-            "-m",
-            "train_pipeline.train_with_probe",
-            "-c",
-            model_config_path(model_name).relative_to(ROOT).as_posix(),
-            "-m",
-            model_name,
-            "--probe-only",
-        ],
-        active_task=active_task,
-        task_log_dir=task_log_dir,
-        task_stage_labels=task_stage_labels,
-        set_active_task_fn=set_active_task_fn,
-        task_runtime_text_fn=task_runtime_text_fn,
-        tail_log_fn=tail_log_fn,
-    )
-
-
 def launch_train(model_name: str, batch_size: int | float | None = None, *, active_task: dict, task_log_dir: Path, task_stage_labels: dict, set_active_task_fn: Callable, task_runtime_text_fn: Callable[[], str], tail_log_fn: Callable[[Path], str]):
     """启动第 4 步：主模型训练。"""
     model_name = sanitize_model_name(model_name)
