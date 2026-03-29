@@ -1,9 +1,4 @@
 from __future__ import annotations
-"""推理页音频转换与结果整理辅助函数。
-
-这里集中放上传音频、TTS 音频和高质量预设转换链，
-让 app_infer.py 入口文件只保留页面事件和全局模型状态。
-"""
 
 import os
 import subprocess
@@ -18,9 +13,29 @@ from infer_ui.runtime import get_model_device_name
 from infer_ui.text import build_runtime_summary, render_convert_result_html
 
 
-
-def vc_infer_with_model(model, output_format, sid, audio_path, truncated_basename, vc_transform, auto_f0, cluster_ratio, slice_db, noise_scale, pad_seconds, cl_num, lg_num, lgr_num, f0_predictor, enhancer_adaptive_key, cr_threshold, k_step, use_spk_mix, second_encoding, loudness_envelope_adjustment):
-    """调用已加载模型执行切片推理并写出结果文件。"""
+def vc_infer_with_model(
+    model,
+    output_format,
+    sid,
+    audio_path,
+    truncated_basename,
+    vc_transform,
+    auto_f0,
+    cluster_ratio,
+    slice_db,
+    noise_scale,
+    pad_seconds,
+    cl_num,
+    lg_num,
+    lgr_num,
+    f0_predictor,
+    enhancer_adaptive_key,
+    cr_threshold,
+    k_step,
+    use_spk_mix,
+    second_encoding,
+    loudness_envelope_adjustment,
+):
     audio = model.slice_inference(
         audio_path,
         sid,
@@ -56,15 +71,34 @@ def vc_infer_with_model(model, output_format, sid, audio_path, truncated_basenam
     return output_file
 
 
-
-def convert_uploaded_audio(model, sid, input_audio, output_format, vc_transform, auto_f0, cluster_ratio, slice_db, noise_scale, pad_seconds, cl_num, lg_num, lgr_num, f0_predictor, enhancer_adaptive_key, cr_threshold, k_step, use_spk_mix, second_encoding, loudness_envelope_adjustment):
-    """处理上传音频并调用模型完成转换。"""
+def convert_uploaded_audio(
+    model,
+    sid,
+    input_audio,
+    output_format,
+    vc_transform,
+    auto_f0,
+    cluster_ratio,
+    slice_db,
+    noise_scale,
+    pad_seconds,
+    cl_num,
+    lg_num,
+    lgr_num,
+    f0_predictor,
+    enhancer_adaptive_key,
+    cr_threshold,
+    k_step,
+    use_spk_mix,
+    second_encoding,
+    loudness_envelope_adjustment,
+):
     if input_audio is None:
         return "You need to upload an audio", None
     if model is None:
         return "You need to upload an model", None
-    if getattr(model, 'cluster_model', None) is None and model.feature_retrieval is False and cluster_ratio != 0:
-        return "You need to upload an cluster model or feature retrieval model before assigning cluster ratio!", None
+    if getattr(model, "cluster_model", None) is None and model.feature_retrieval is False and cluster_ratio != 0:
+        cluster_ratio = 0
 
     audio, sampling_rate = soundfile.read(input_audio)
     if np.issubdtype(audio.dtype, np.integer):
@@ -100,16 +134,39 @@ def convert_uploaded_audio(model, sid, input_audio, output_format, vc_transform,
     return "Success", output_file
 
 
-
-def convert_tts_audio(model, text, lang, gender, rate, volume, sid, output_format, vc_transform, auto_f0, cluster_ratio, slice_db, noise_scale, pad_seconds, cl_num, lg_num, lgr_num, f0_predictor, enhancer_adaptive_key, cr_threshold, k_step, use_spk_mix, second_encoding, loudness_envelope_adjustment):
-    """先生成 TTS，再走同一条推理转换链。"""
+def convert_tts_audio(
+    model,
+    text,
+    lang,
+    gender,
+    rate,
+    volume,
+    sid,
+    output_format,
+    vc_transform,
+    auto_f0,
+    cluster_ratio,
+    slice_db,
+    noise_scale,
+    pad_seconds,
+    cl_num,
+    lg_num,
+    lgr_num,
+    f0_predictor,
+    enhancer_adaptive_key,
+    cr_threshold,
+    k_step,
+    use_spk_mix,
+    second_encoding,
+    loudness_envelope_adjustment,
+):
     if model is None:
         return "You need to upload an model", None
-    if getattr(model, 'cluster_model', None) is None and model.feature_retrieval is False and cluster_ratio != 0:
-        return "You need to upload an cluster model or feature retrieval model before assigning cluster ratio!", None
+    if getattr(model, "cluster_model", None) is None and model.feature_retrieval is False and cluster_ratio != 0:
+        cluster_ratio = 0
 
-    rate = f"+{int(rate*100)}%" if rate >= 0 else f"{int(rate*100)}%"
-    volume = f"+{int(volume*100)}%" if volume >= 0 else f"{int(volume*100)}%"
+    rate = f"+{int(rate * 100)}%" if rate >= 0 else f"{int(rate * 100)}%"
+    volume = f"+{int(volume * 100)}%" if volume >= 0 else f"{int(volume * 100)}%"
     if lang == "Auto":
         gender = "Male" if gender == "男" else "Female"
         subprocess.run([sys.executable, "edgetts/tts.py", text, lang, rate, volume, gender])
@@ -146,15 +203,17 @@ def convert_tts_audio(model, text, lang, gender, rate, volume, sid, output_forma
     return "Success", output_file_path
 
 
-
 def quality_convert(model, sid, input_audio, quality_mode, vc_transform, cluster_ratio, k_step, best_quality_preset):
-    """按高质量预设执行一次转换，并整理结果文案。"""
     preflight = ""
     if model is not None:
         if not model.shallow_diffusion:
             preflight += "提醒：当前没有加载音质增强模型，转换可以继续，但不会是最佳音质。\n"
         if getattr(model, "cluster_model", None) is None:
             preflight += "提醒：当前没有加载音色增强文件，音色相似度可能低于最佳状态。\n"
+            if cluster_ratio != 0:
+                preflight += "提醒：当前未加载聚类/特征检索模型，已自动将特征检索混合比例改为 0。\n"
+                cluster_ratio = 0
+
     msg, audio = convert_uploaded_audio(
         model,
         sid,
@@ -179,6 +238,7 @@ def quality_convert(model, sid, input_audio, quality_mode, vc_transform, cluster
     )
     if audio is None:
         return render_convert_result_html(preflight + str(msg)), audio
+
     runtime_summary = build_runtime_summary(
         get_model_device_name(model),
         sid,

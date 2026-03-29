@@ -6,6 +6,7 @@ import webbrowser
 from pathlib import Path
 
 import gradio as gr
+import soundfile as sf
 import torch
 
 from gradio_api_info_fallback import apply_gradio_4_api_info_patch
@@ -163,6 +164,33 @@ def quality_vc_fn(sid, input_audio, quality_mode, vc_transform, cluster_ratio, k
     return quality_convert(model, sid, input_audio, quality_mode, vc_transform, cluster_ratio, k_step, BEST_QUALITY_PRESET)
 
 
+def describe_input_audio(audio_path):
+    if not audio_path:
+        return '<div class="subtle-note">尚未选择输入音频。</div>'
+    try:
+        info = sf.info(audio_path)
+        minutes = int(info.duration // 60)
+        seconds = int(round(info.duration % 60))
+        if seconds == 60:
+            minutes += 1
+            seconds = 0
+        duration_text = f"{minutes}:{seconds:02d}"
+        return (
+            '<div class="subtle-note">'
+            f'后端识别时长：{duration_text}（{info.duration:.2f} 秒）；'
+            f'采样率：{info.samplerate} Hz；'
+            f'声道：{info.channels}；'
+            f'格式：{info.format}'
+            '</div>'
+        )
+    except Exception as exc:
+        return f'<div class="subtle-note">无法读取输入音频信息：{type(exc).__name__}: {exc}</div>'
+
+
+def preview_input_audio(audio_path):
+    return audio_path or None
+
+
 with gr.Blocks(
     analytics_enabled=False,
     theme=gr.themes.Base(
@@ -267,13 +295,17 @@ with gr.Blocks(
                 """)
         with gr.Column(scale=6, elem_classes=["step-card", "card-output"]):
             gr.Markdown("### 4. 上传音频并转换")
-            vc_input3 = gr.Audio(label="输入音频", type="filepath")
+            vc_input3 = gr.File(
+                label="选择输入音频文件",
+                file_types=["audio"],
+                type="filepath",
+            )
+            input_audio_info = gr.HTML('<div class="subtle-note">尚未选择输入音频。</div>')
+            vc_input_preview = gr.Audio(label="输入音频", interactive=False, elem_classes=["result-audio"])
             vc_submit = gr.Button("开始转换", variant="primary", elem_classes=["primary-action"])
-            with gr.Row():
-                with gr.Column():
-                    gr.Markdown("#### 处理结果")
-                    vc_output1 = gr.HTML(render_convert_result_html("等待开始转换。"))
-                vc_output2 = gr.Audio(label="输出音频", interactive=False, elem_classes=["result-audio"])
+            gr.Markdown("#### 处理结果")
+            vc_output1 = gr.HTML(render_convert_result_html("等待开始转换。"))
+            vc_output2 = gr.Audio(label="输出音频", interactive=False, elem_classes=["result-audio"])
 
     local_model_refresh_btn.click(local_model_refresh_fn, outputs=local_model_selection, show_api=False)
     local_model_tab_upload.select(lambda: False, outputs=local_model_enabled, show_api=False)
@@ -327,6 +359,8 @@ with gr.Blocks(
         show_api=False,
     )
     model_unload_button.click(modelUnload, [], [sid, sid_output], show_api=False)
+    vc_input3.change(describe_input_audio, [vc_input3], [input_audio_info], show_api=False)
+    vc_input3.change(preview_input_audio, [vc_input3], [vc_input_preview], show_api=False)
     vc_submit.click(quality_vc_fn, [sid, vc_input3, quality_mode, vc_transform, cluster_ratio, k_step], [vc_output1, vc_output2], show_api=False)
     quality_mode.change(apply_quality_mode, [quality_mode], [cluster_ratio, k_step], show_api=False)
     best_quality_preset_btn.click(

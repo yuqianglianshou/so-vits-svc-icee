@@ -10,7 +10,7 @@
       0.99
     ],
     "eps": 1e-09,
-    "batch_size": 8,
+    "batch_size": 12,
     "fp16_run": false,
     "half_type": "fp16",
     "lr_decay": 0.999875,
@@ -23,6 +23,15 @@
     "max_speclen": 512,
     "port": "8001",
     "keep_ckpts": 3,
+    "keep_g_milestones": [
+      1000,
+      2000,
+      5000,
+      10000,
+      20000,
+      50000,
+      100000
+    ],
     "all_in_mem": false,
     "num_workers": 5,
     "pin_memory": true,

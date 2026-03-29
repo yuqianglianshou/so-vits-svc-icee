@@ -187,7 +187,20 @@ def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path)
               'optimizer': optimizer.state_dict(),
               'learning_rate': learning_rate}, checkpoint_path)
 
-def clean_checkpoints(path_to_models='logs/44k/', n_ckpts_to_keep=2, sort_by_time=True):
+DEFAULT_G_MILESTONE_STEPS = [1000, 2000, 5000, 10000, 20000, 50000, 100000]
+
+
+def _checkpoint_step(filename):
+  match = re.compile(r"._(\d+)\.pth").match(filename)
+  return int(match.group(1)) if match else None
+
+
+def clean_checkpoints(
+    path_to_models='logs/44k/',
+    n_ckpts_to_keep=2,
+    sort_by_time=True,
+    preserve_g_steps=None,
+):
   """Freeing up space by deleting saved ckpts
 
   Arguments:
@@ -195,17 +208,30 @@ def clean_checkpoints(path_to_models='logs/44k/', n_ckpts_to_keep=2, sort_by_tim
   n_ckpts_to_keep   --  Number of ckpts to keep, excluding G_0.pth and D_0.pth
   sort_by_time      --  True -> chronologically delete ckpts
                         False -> lexicographically delete ckpts
+  preserve_g_steps  --  Additional generator checkpoint steps to keep
   """
   ckpts_files = [f for f in os.listdir(path_to_models) if os.path.isfile(os.path.join(path_to_models, f))]
   def name_key(_f):
-      return int(re.compile("._(\\d+)\\.pth").match(_f).group(1))
+      return _checkpoint_step(_f)
   def time_key(_f):
       return os.path.getmtime(os.path.join(path_to_models, _f))
   sort_key = time_key if sort_by_time else name_key
   def x_sorted(_x):
       return sorted([f for f in ckpts_files if f.startswith(_x) and not f.endswith("_0.pth")], key=sort_key)
-  to_del = [os.path.join(path_to_models, fn) for fn in
-            (x_sorted('G')[:-n_ckpts_to_keep] + x_sorted('D')[:-n_ckpts_to_keep])]
+
+  preserve_g_steps = set(DEFAULT_G_MILESTONE_STEPS if preserve_g_steps is None else preserve_g_steps)
+  g_files = x_sorted('G')
+  d_files = x_sorted('D')
+  keep_g_files = set(g_files[-n_ckpts_to_keep:]) if n_ckpts_to_keep > 0 else set()
+  keep_d_files = set(d_files[-n_ckpts_to_keep:]) if n_ckpts_to_keep > 0 else set()
+
+  for filename in g_files:
+      step = _checkpoint_step(filename)
+      if step in preserve_g_steps:
+          keep_g_files.add(filename)
+
+  to_del = [os.path.join(path_to_models, fn) for fn in g_files if fn not in keep_g_files]
+  to_del += [os.path.join(path_to_models, fn) for fn in d_files if fn not in keep_d_files]
   def del_info(fn):
       return logger.info(f".. Free up space by deleting ckpt {fn}")
   def del_routine(x):
