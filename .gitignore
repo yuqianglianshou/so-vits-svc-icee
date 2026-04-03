@@ -184,3 +184,4 @@ pretrain/base_models/44k/diffusion/*.pt
 .vscode/launch.json
 
 trained/**/
+trained/*.json

@@ -13,6 +13,27 @@ import utils
 
 pattern = re.compile(r'^[\.a-zA-Z0-9_\/]+$')
 
+
+def split_train_val(wavs: list[str]) -> tuple[list[str], list[str]]:
+    """单说话人训练集划分。
+
+    规则：
+    1. 只要存在样本，就尽量保证 train 至少有 1 条；
+    2. 验证集默认取少量样本，不再固定死取前 2 条；
+    3. 小数据集场景下优先保证训练集非空。
+    """
+    total = len(wavs)
+    if total == 0:
+        return [], []
+    if total == 1:
+        return wavs[:], []
+
+    # 默认给验证集留 10%，但至少 1 条；同时强制给训练集保留至少 1 条。
+    val_count = max(1, total // 10)
+    val_count = min(val_count, 2)
+    val_count = min(val_count, total - 1)
+    return wavs[val_count:], wavs[:val_count]
+
 def get_wav_duration(file_path):
     try:
         with wave.open(file_path, 'rb') as wav_file:
@@ -97,8 +118,9 @@ if __name__ == "__main__":
             wavs.append(file_path)
 
         shuffle(wavs)
-        train += wavs[2:]
-        val += wavs[:2]
+        speaker_train, speaker_val = split_train_val(wavs)
+        train += speaker_train
+        val += speaker_val
 
     shuffle(train)
     shuffle(val)

@@ -40,6 +40,17 @@ def count_generated_checkpoints(base_dir: Path, pattern: str, excluded_names: se
     return sum(1 for path in base_dir.glob(pattern) if path.name not in excluded_names)
 
 
+def count_nonempty_lines(path: Path):
+    """统计文本文件中的非空行数量。"""
+    if not path.exists():
+        return 0
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            return sum(1 for line in handle if line.strip())
+    except OSError:
+        return 0
+
+
 def collect_stage_state(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "dataset/44k"):
     """汇总训练阶段状态，供进度区和按钮状态统一使用。"""
     model_name = sanitize_model_name(model_name)
@@ -62,8 +73,12 @@ def collect_stage_state(model_name: str = "44k", raw_dir: str = "default_dataset
 
     has_config = model_config_path(model_name).exists()
     has_diff_config = model_diff_config_path(model_name).exists()
-    has_train_list = model_train_list_path(model_name).exists()
-    has_val_list = model_val_list_path(model_name).exists()
+    train_list_path = model_train_list_path(model_name)
+    val_list_path = model_val_list_path(model_name)
+    has_train_list = train_list_path.exists()
+    has_val_list = val_list_path.exists()
+    train_list_entries = count_nonempty_lines(train_list_path)
+    val_list_entries = count_nonempty_lines(val_list_path)
     single_speaker_ready = train_speakers == 1
     feature_progress_detail = (
         f"wav={train_wavs} / soft={soft_count} / f0={f0_count} / spec={spec_count} / trainpt={train_bundle_count}"
@@ -89,7 +104,13 @@ def collect_stage_state(model_name: str = "44k", raw_dir: str = "default_dataset
         next_step = f"执行第 1 步：重采样到 {train_dir}。"
         button_state["resample"] = {"value": f"1. 重采样到 {train_dir}", "interactive": True}
 
-    config_ready = has_config and has_diff_config and has_train_list and has_val_list
+    config_ready = (
+        has_config
+        and has_diff_config
+        and has_train_list
+        and has_val_list
+        and train_list_entries > 0
+    )
     if train_wavs == 0:
         stage_lines.append(compact_stage_line("2. 生成配置与文件列表", "等待上一步", "等待重采样"))
         stage_items.append(("2. 生成配置与文件列表", "等待上一步", "等待重采样"))
@@ -102,8 +123,9 @@ def collect_stage_state(model_name: str = "44k", raw_dir: str = "default_dataset
             next_step = "先清理处理后数据目录，确保本轮训练只保留 1 个训练数据子目录。"
         button_state["config"] = {"value": "2. 生成配置与文件列表（等待数据目录整理）", "interactive": False}
     elif config_ready:
-        stage_lines.append(compact_stage_line("2. 生成配置与文件列表", "已完成", "配置和列表已就绪"))
-        stage_items.append(("2. 生成配置与文件列表", "已完成", "配置和列表已就绪"))
+        detail = f"配置和列表已就绪（train={train_list_entries} / val={val_list_entries}）"
+        stage_lines.append(compact_stage_line("2. 生成配置与文件列表", "已完成", detail))
+        stage_items.append(("2. 生成配置与文件列表", "已完成", detail))
         button_state["config"] = {"value": "2. 生成配置与文件列表（已完成）", "interactive": True}
     else:
         missing = []
@@ -115,6 +137,8 @@ def collect_stage_state(model_name: str = "44k", raw_dir: str = "default_dataset
             missing.append(model_train_list_path(model_name).relative_to(ROOT).as_posix())
         if not has_val_list:
             missing.append(model_val_list_path(model_name).relative_to(ROOT).as_posix())
+        if has_train_list and train_list_entries == 0:
+            missing.append(f"{train_list_path.relative_to(ROOT).as_posix()}（内容为空）")
         stage_lines.append(compact_stage_line("2. 生成配置与文件列表", "可执行", "缺少：" + "、".join(missing)))
         stage_items.append(("2. 生成配置与文件列表", "可执行", "缺少：" + "、".join(missing)))
         if next_step is None:
