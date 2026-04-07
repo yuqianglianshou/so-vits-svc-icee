@@ -43,10 +43,13 @@ def main():
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = hps.train.port
 
-    mp.spawn(run, nprocs=n_gpus, args=(n_gpus, hps,))
+    if n_gpus == 1:
+        run(0, n_gpus, hps, use_ddp=False)
+    else:
+        mp.spawn(run, nprocs=n_gpus, args=(n_gpus, hps, True))
 
 
-def run(rank, n_gpus, hps):
+def run(rank, n_gpus, hps, use_ddp=True):
     global global_step
     if rank == 0:
         logger = utils.get_logger(hps.model_dir)
@@ -55,20 +58,23 @@ def run(rank, n_gpus, hps):
         writer = SummaryWriter(log_dir=hps.model_dir)
         writer_eval = SummaryWriter(log_dir=os.path.join(hps.model_dir, "eval"))
     
-    # for pytorch on win, backend use gloo    
-    dist.init_process_group(backend=  'gloo' if os.name == 'nt' else 'nccl', init_method='env://', world_size=n_gpus, rank=rank)
+    if use_ddp:
+        # for pytorch on win, backend use gloo
+        dist.init_process_group(backend='gloo' if os.name == 'nt' else 'nccl', init_method='env://', world_size=n_gpus, rank=rank)
     torch.manual_seed(hps.train.seed)
     torch.cuda.set_device(rank)
     collate_fn = TextAudioCollate()
     all_in_mem = hps.train.all_in_mem   # If you have enough memory, turn on this option to avoid disk IO and speed up training.
     train_dataset = TextAudioSpeakerLoader(hps.data.training_files, hps, all_in_mem=all_in_mem)
-    train_sampler = DistributedSampler(
-        train_dataset,
-        num_replicas=n_gpus,
-        rank=rank,
-        shuffle=True,
-        drop_last=False,
-    )
+    train_sampler = None
+    if use_ddp:
+        train_sampler = DistributedSampler(
+            train_dataset,
+            num_replicas=n_gpus,
+            rank=rank,
+            shuffle=True,
+            drop_last=False,
+        )
     default_train_workers = 5 if multiprocessing.cpu_count() > 4 else multiprocessing.cpu_count()
     num_workers = hps.train.get("num_workers")
     if num_workers is None:
@@ -93,12 +99,13 @@ def run(rank, n_gpus, hps):
 
     train_loader_kwargs = {
         "num_workers": num_workers,
-        "shuffle": False,
+        "shuffle": train_sampler is None,
         "pin_memory": pin_memory,
         "batch_size": hps.train.batch_size,
         "collate_fn": collate_fn,
-        "sampler": train_sampler,
     }
+    if train_sampler is not None:
+        train_loader_kwargs["sampler"] = train_sampler
     if num_workers > 0:
         train_loader_kwargs["persistent_workers"] = persistent_workers
         train_loader_kwargs["prefetch_factor"] = prefetch_factor
@@ -151,8 +158,9 @@ def run(rank, n_gpus, hps):
         hps.train.learning_rate,
         betas=hps.train.betas,
         eps=hps.train.eps)
-    net_g = DDP(net_g, device_ids=[rank])  # , find_unused_parameters=True)
-    net_d = DDP(net_d, device_ids=[rank])
+    if use_ddp:
+        net_g = DDP(net_g, device_ids=[rank])  # , find_unused_parameters=True)
+        net_d = DDP(net_d, device_ids=[rank])
 
     skip_optimizer = False
     try:
@@ -160,6 +168,8 @@ def run(rank, n_gpus, hps):
                                                    optim_g, skip_optimizer)
         _, _, _, epoch_str = utils.load_checkpoint(utils.latest_checkpoint_path(hps.model_dir, "D_*.pth"), net_d,
                                                    optim_d, skip_optimizer)
+        utils.move_optimizer_to_device(optim_g, torch.device(f"cuda:{rank}"))
+        utils.move_optimizer_to_device(optim_d, torch.device(f"cuda:{rank}"))
         epoch_str = max(epoch_str, 1)
         name=utils.latest_checkpoint_path(hps.model_dir, "D_*.pth")
         global_step=int(name[name.rfind("_")+1:name.rfind(".")])+1
@@ -184,7 +194,8 @@ def run(rank, n_gpus, hps):
     scaler = GradScaler(enabled=hps.train.fp16_run)
 
     for epoch in range(epoch_str, hps.train.epochs + 1):
-        train_sampler.set_epoch(epoch)
+        if train_sampler is not None:
+            train_sampler.set_epoch(epoch)
         # set up warm-up learning rate
         if epoch <= warmup_epoch:
             for param_group in optim_g.param_groups:
@@ -202,9 +213,13 @@ def run(rank, n_gpus, hps):
         scheduler_g.step()
         scheduler_d.step()
 
+    if use_ddp and dist.is_initialized():
+        dist.destroy_process_group()
+
 
 def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loaders, logger, writers):
     net_g, net_d = nets
+    net_g_module = net_g.module if hasattr(net_g, "module") else net_g
     optim_g, optim_d = optims
     scheduler_g, scheduler_d = schedulers
     train_loader, eval_loader = loaders
@@ -226,6 +241,8 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
         f0 = f0.cuda(rank, non_blocking=True)
         uv = uv.cuda(rank, non_blocking=True)
         lengths = lengths.cuda(rank, non_blocking=True)
+        if volume is not None:
+            volume = volume.cuda(rank, non_blocking=True)
         mel = spec_to_mel_torch(
             spec,
             hps.data.filter_length,
@@ -274,7 +291,7 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
                 loss_kl = kl_loss(z_p, logs_q, m_p, logs_p, z_mask) * hps.train.c_kl
                 loss_fm = feature_loss(fmap_r, fmap_g)
                 loss_gen, losses_gen = generator_loss(y_d_hat_g)
-                loss_lf0 = F.mse_loss(pred_lf0, lf0) if net_g.module.use_automatic_f0_prediction else 0
+                loss_lf0 = F.mse_loss(pred_lf0, lf0) if net_g_module.use_automatic_f0_prediction else 0
                 loss_gen_all = loss_gen + loss_fm + loss_mel + loss_kl + loss_lf0
         optim_g.zero_grad()
         scaler.scale(loss_gen_all).backward()
@@ -309,7 +326,7 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
                     "all/mel": utils.plot_spectrogram_to_numpy(mel[0].data.cpu().numpy())
                 }
 
-                if net_g.module.use_automatic_f0_prediction:
+                if net_g_module.use_automatic_f0_prediction:
                     image_dict.update({
                         "all/lf0": utils.plot_data_to_numpy(lf0[0, 0, :].cpu().numpy(),
                                                               pred_lf0[0, 0, :].detach().cpu().numpy()),
@@ -351,6 +368,7 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
 
 
 def evaluate(hps, generator, eval_loader, writer_eval):
+    generator_module = generator.module if hasattr(generator, "module") else generator
     generator.eval()
     image_dict = {}
     audio_dict = {}
@@ -371,7 +389,7 @@ def evaluate(hps, generator, eval_loader, writer_eval):
                 hps.data.sampling_rate,
                 hps.data.mel_fmin,
                 hps.data.mel_fmax)
-            y_hat,_ = generator.module.infer(c, f0, uv, g=g,vol = volume)
+            y_hat,_ = generator_module.infer(c, f0, uv, g=g,vol = volume)
 
             y_hat_mel = mel_spectrogram_torch(
                 y_hat.squeeze(1).float(),

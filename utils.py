@@ -175,6 +175,15 @@ def load_checkpoint(checkpoint_path, model, optimizer=None, skip_optimizer=False
     return model, optimizer, learning_rate, iteration
 
 
+def move_optimizer_to_device(optimizer, device):
+    if optimizer is None:
+        return
+    for state in optimizer.state.values():
+        for key, value in state.items():
+            if torch.is_tensor(value):
+                state[key] = value.to(device)
+
+
 def save_checkpoint(model, optimizer, learning_rate, iteration, checkpoint_path):
   logger.info("Saving model and optimizer state at iteration {} to {}".format(
     iteration, checkpoint_path))
