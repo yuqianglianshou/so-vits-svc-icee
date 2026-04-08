@@ -51,7 +51,7 @@ class ContentVec768L12(SpeechEncoder):
             raise ValueError(
                 "当前项目的 ContentVec 已切换到 transformers/HF 路线，不能再直接加载 fairseq .pt 权重。"
                 "请提供 Hugging Face 模型目录、模型仓库名，"
-                "或先将兼容模型放到 pretrain/encoders/contentvec_hf。"
+                "或先将兼容模型放到 model_assets/dependencies/encoders/contentvec_hf。"
             )
         if candidate_path.exists():
             return str(candidate_path)

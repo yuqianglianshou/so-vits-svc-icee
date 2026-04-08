@@ -53,9 +53,9 @@ def train_cluster(in_dir, n_clusters, use_minibatch=True, verbose=False,use_gpu=
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=Path, default="./dataset/44k",
+    parser.add_argument('--dataset', type=Path, default="./training_data/processed/44k",
                         help='path of training data directory')
-    parser.add_argument('--output', type=Path, default="logs/44k",
+    parser.add_argument('--output', type=Path, default="model_assets/workspaces/44k",
                         help='path of model output directory')
     parser.add_argument('--gpu',action='store_true', default=False ,
                         help='to use GPU')
@@ -64,15 +64,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     checkpoint_dir = args.output
-    dataset = args.dataset
+    processed_root = args.dataset
     use_gpu = args.gpu
     n_clusters = 10000
     
     ckpt = {}
-    for spk in os.listdir(dataset):
-        if os.path.isdir(dataset/spk):
+    for spk in os.listdir(processed_root):
+        if os.path.isdir(processed_root/spk):
             print(f"train kmeans for {spk}...")
-            in_dir = dataset/spk
+            in_dir = processed_root/spk
             x = train_cluster(in_dir, n_clusters,use_minibatch=False,verbose=False,use_gpu=use_gpu)
             ckpt[spk] = x
 

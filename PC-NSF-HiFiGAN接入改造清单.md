@@ -47,14 +47,14 @@
 - [path_utils.py](/Volumes/D/MyGitHub/so-vits-svc-icee/path_utils.py)
 
 当前现状：
-- 训练页只认识 `pretrain/vocoders/nsf_hifigan/`
+- 训练页只认识 `model_assets/dependencies/vocoders/nsf_hifigan/`
 - 自动获取、缺失检查、说明文案也都只写旧包名
 
 建议改法：
 - 新增一个并行资源键，例如：
   - `pc_nsf_hifigan`
 - 新增对应目录，例如：
-  - `pretrain/vocoders/pc_nsf_hifigan/`
+  - `model_assets/dependencies/vocoders/pc_nsf_hifigan/`
 - 新增获取规则、缺失检查规则，但先不要替换旧版默认值
 
 为什么是低风险：
@@ -211,8 +211,8 @@
 
 相关文件：
 - [inference/infer_tool.py](/Volumes/D/MyGitHub/so-vits-svc-icee/inference/infer_tool.py)
-- [logs/<模型名>/config.json](/Volumes/D/MyGitHub/so-vits-svc-icee/logs/阜宁哪/config.json)
-- [logs/<模型名>/diffusion.yaml](/Volumes/D/MyGitHub/so-vits-svc-icee/logs/阜宁哪/diffusion.yaml)
+- [model_assets/workspaces/<模型名>/config.json](/Volumes/D/MyGitHub/so-vits-svc-icee/model_assets/workspaces/阜宁哪/config.json)
+- [model_assets/workspaces/<模型名>/diffusion.yaml](/Volumes/D/MyGitHub/so-vits-svc-icee/model_assets/workspaces/阜宁哪/diffusion.yaml)
 
 为什么高风险：
 - 你现在已有模型工作区都写着：

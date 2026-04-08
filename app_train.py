@@ -126,7 +126,7 @@ apply_gradio_4_api_info_patch()
 
 ROOT = Path(__file__).resolve().parent
 TRAIN_PAGE_CSS = (ROOT / "train_ui" / "page.css").read_text(encoding="utf-8")
-TASK_LOG_DIR = ROOT / "logs" / "webui_tasks"
+TASK_LOG_DIR = ROOT / "model_assets/workspaces" / "webui_tasks"
 TASK_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 ACTIVE_TASK = {
@@ -176,7 +176,7 @@ PIPELINE_LABELS = {
     "pipeline_train_main": "一键执行到主模型训练",
 }
 
-RAW_DATASET_PARENT = ROOT / "dataset_raw"
+RAW_DATASET_PARENT = ROOT / "training_data/source"
 
 PRETRAIN_ASSETS = {
     "contentvec_hf": {
@@ -707,12 +707,12 @@ def detect_file(path_str: str):
 def append_pipeline_log(log_path: Path, message: str):
     with log_path.open("a", encoding="utf-8") as log_file:
         log_file.write(message.rstrip() + "\n")
-def render_stage_judgement(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "dataset/44k"):
+def render_stage_judgement(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "training_data/processed/44k"):
     state = collect_stage_state(model_name, raw_dir, train_dir)
     return render_stage_judgement_html(state)
 
 
-def render_button_updates(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "dataset/44k"):
+def render_button_updates(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "training_data/processed/44k"):
     stage_state = collect_stage_state(model_name, raw_dir, train_dir)
     task_name = ACTIVE_TASK["name"]
     pipeline_name = ACTIVE_TASK["pipeline_name"]
@@ -751,7 +751,7 @@ def current_stage_label():
     return TASK_STAGE_LABELS.get(task_name, task_name)
 
 
-def current_task_feedback(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "dataset/44k"):
+def current_task_feedback(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "training_data/processed/44k"):
     proc = ACTIVE_TASK["proc"]
     task_name = ACTIVE_TASK["name"]
     log_path = ACTIVE_TASK["log_path"]
@@ -772,7 +772,7 @@ def current_task_feedback(model_name: str = "44k", raw_dir: str = "default_datas
     return build_task_feedback(stage_label, task_display, str(log_path), False, exit_code, next_step_line)
 
 
-def render_stage_alert(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "dataset/44k"):
+def render_stage_alert(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "training_data/processed/44k"):
     proc = ACTIVE_TASK["proc"]
     task_name = ACTIVE_TASK["name"]
     stage_label = current_stage_label()
@@ -781,7 +781,7 @@ def render_stage_alert(model_name: str = "44k", raw_dir: str = "default_dataset"
     return build_stage_alert_text(task_name, stage_label, is_running, succeeded)
 
 
-def render_preflight_check(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "dataset/44k"):
+def render_preflight_check(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "training_data/processed/44k"):
     return render_preflight_check_html(
         model_name,
         raw_dir,
@@ -1216,7 +1216,7 @@ with gr.Blocks(
                 elem_classes=["runtime-banner-box"],
             )
             with gr.Row():
-                resample_btn = gr.Button("1. 重采样到 dataset/44k", elem_classes=["primary-action"])
+                resample_btn = gr.Button("1. 重采样到 training_data/processed/44k", elem_classes=["primary-action"])
                 config_btn = gr.Button("2. 生成配置与文件列表", elem_classes=["primary-action"])
             with gr.Row():
                 preprocess_btn = gr.Button("3. 提取特征", elem_classes=["primary-action"])

@@ -205,7 +205,7 @@ def _checkpoint_step(filename):
 
 
 def clean_checkpoints(
-    path_to_models='logs/44k/',
+    path_to_models='model_assets/workspaces/44k/',
     n_ckpts_to_keep=2,
     sort_by_time=True,
     preserve_g_steps=None,
@@ -330,7 +330,7 @@ def load_filepaths_and_text(filename, split="|"):
 
 def get_hparams(init=True):
   parser = argparse.ArgumentParser()
-  parser.add_argument('-c', '--config', type=str, default="./configs/config.json",
+  parser.add_argument('-c', '--config', type=str, default="./model_assets/workspaces/44k/config.json",
                       help='JSON file for configuration')
   parser.add_argument('-m', '--model', type=str, required=True,
                       help='Model name')
@@ -338,7 +338,7 @@ def get_hparams(init=True):
                       help='Optional per-GPU batch size override for main training')
 
   args = parser.parse_args()
-  model_dir = os.path.join("./logs", args.model)
+  model_dir = os.path.join("./model_assets/workspaces", args.model)
 
   if not os.path.exists(model_dir):
     os.makedirs(model_dir)
@@ -482,7 +482,7 @@ def change_rms(data1, sr1, data2, sr2, rate):  # 1是输入音频，2是输出�
     )
     return data2
 
-def train_index(spk_name,root_dir = "dataset/44k/"):  #from: RVC https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI
+def train_index(spk_name,root_dir = "training_data/processed/44k/"):  #from: RVC https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI
     n_cpu = cpu_count()
     print("The feature index is constructing.")
     exp_dir = os.path.join(root_dir,spk_name)

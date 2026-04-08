@@ -51,11 +51,11 @@ def status_tone_tag(status: str):
     return "missing", "●"
 
 
-def render_dataset_import_result(message: str = "等待选择训练语音数据文件夹，选中后会自动导入到 dataset_raw。") -> str:
+def render_dataset_import_result(message: str = "等待选择训练语音数据文件夹，选中后会自动导入到 training_data/source。") -> str:
     """根据消息内容渲染“语音数据状态”卡片。"""
     text = (message or "").strip()
     if not text:
-        text = "等待选择训练语音数据文件夹，选中后会自动导入到 dataset_raw。"
+        text = "等待选择训练语音数据文件夹，选中后会自动导入到 training_data/source。"
     tone = "#1f8f4c"
     if any(keyword in text for keyword in ["失败", "不存在", "禁止", "无法", "缺少"]):
         tone = "#c0392b"

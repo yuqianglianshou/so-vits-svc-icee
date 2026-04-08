@@ -18,8 +18,8 @@ def main():
     parser = argparse.ArgumentParser(description='sovits4 inference')
 
     # 一定要设置的部分
-    parser.add_argument('-m', '--model_path', type=str, default="logs/44k/G_37600.pth", help='模型路径')
-    parser.add_argument('-c', '--config_path', type=str, default="logs/44k/config.json", help='配置文件路径')
+    parser.add_argument('-m', '--model_path', type=str, default="model_assets/workspaces/44k/G_37600.pth", help='模型路径')
+    parser.add_argument('-c', '--config_path', type=str, default="model_assets/workspaces/44k/config.json", help='配置文件路径')
     parser.add_argument('-cl', '--clip', type=float, default=0, help='音频强制切片，默认0为自动切片，单位为秒/s')
     parser.add_argument('-n', '--clean_names', type=str, nargs='+', default=["君の知らない物語-src.wav"], help='wav文件名列表，放在raw文件夹下')
     parser.add_argument('-t', '--trans', type=int, nargs='+', default=[0], help='音高调整，支持正负（半音）')
@@ -28,7 +28,7 @@ def main():
     # 极致音质配置：固定参数
     parser.add_argument('-a', '--auto_predict_f0', action='store_true', default=False, help='[极致音质配置] 转换歌声时不要打开，会严重跑调')
     # 极致音质配置：默认启用特征检索，混合比例0.5
-    parser.add_argument('-cm', '--cluster_model_path', type=str, default="logs/44k/feature_and_index.pkl", help='[极致音质配置] 特征检索索引路径，默认使用feature_and_index.pkl')
+    parser.add_argument('-cm', '--cluster_model_path', type=str, default="model_assets/workspaces/44k/feature_and_index.pkl", help='[极致音质配置] 特征检索索引路径，默认使用feature_and_index.pkl')
     parser.add_argument('-cr', '--cluster_infer_ratio', type=float, default=BEST_QUALITY_PRESET["cluster_ratio"], help='[极致音质配置] 特征检索混合比例')
     parser.add_argument('-lg', '--linear_gradient', type=float, default=0, help='两段音频切片的交叉淡入长度，如果强制切片后出现人声不连贯可调整该数值，如果连贯建议采用默认值0，单位为秒')
     # 极致音质配置：固定使用 rmvpe
@@ -44,8 +44,8 @@ def main():
     parser.add_argument('--no_feature_retrieval', action='store_true', help='[极致音质配置] 禁用特征检索')
 
     # 极致音质配置：浅扩散设置
-    parser.add_argument('-dm', '--diffusion_model_path', type=str, default="logs/44k/diffusion/model_0.pt", help='[极致音质配置] 扩散模型路径')
-    parser.add_argument('-dc', '--diffusion_config_path', type=str, default="logs/44k/diffusion/config.yaml", help='[极致音质配置] 扩散模型配置文件路径')
+    parser.add_argument('-dm', '--diffusion_model_path', type=str, default="model_assets/workspaces/44k/diffusion/model_0.pt", help='[极致音质配置] 扩散模型路径')
+    parser.add_argument('-dc', '--diffusion_config_path', type=str, default="model_assets/workspaces/44k/diffusion/config.yaml", help='[极致音质配置] 扩散模型配置文件路径')
     # 极致音质配置：k_step设置为200（极致音质）
     parser.add_argument('-ks', '--k_step', type=int, default=BEST_QUALITY_PRESET["k_step"], help='[极致音质配置] 扩散步数')
     # 极致音质配置：默认启用二次编码
@@ -98,7 +98,7 @@ def main():
     # 极致音质配置：自动设置特征检索路径
     if feature_retrieval and cluster_infer_ratio > 0:
         if args.cluster_model_path == "":
-            args.cluster_model_path = "logs/44k/feature_and_index.pkl"
+            args.cluster_model_path = "model_assets/workspaces/44k/feature_and_index.pkl"
     else:
         args.cluster_model_path = ""
 
@@ -118,7 +118,7 @@ def main():
                     use_spk_mix,
                     feature_retrieval)
     
-    infer_tool.mkdir(["raw", "results"])
+    infer_tool.mkdir(["inference_data/inputs", "inference_data/outputs"])
     
     if len(spk_mix_map)<=1:
         use_spk_mix = False
@@ -127,7 +127,7 @@ def main():
     
     infer_tool.fill_a_to_b(trans, clean_names)
     for clean_name, tran in zip(clean_names, trans):
-        raw_audio_path = f"raw/{clean_name}"
+        raw_audio_path = f"inference_data/inputs/{clean_name}"
         if "." not in raw_audio_path:
             raw_audio_path += ".wav"
         infer_tool.format_wav(raw_audio_path)
@@ -162,7 +162,7 @@ def main():
                 isdiffusion = "diff"
             if use_spk_mix:
                 spk = "spk_mix"
-            res_path = f'results/{clean_name}_{key}_{spk}{cluster_name}_{isdiffusion}_{f0p}.{wav_format}'
+            res_path = f'inference_data/outputs/{clean_name}_{key}_{spk}{cluster_name}_{isdiffusion}_{f0p}.{wav_format}'
             soundfile.write(res_path, audio, svc_model.target_sample, format=wav_format)
             svc_model.clear_empty()
             

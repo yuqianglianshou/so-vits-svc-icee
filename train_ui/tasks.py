@@ -231,7 +231,7 @@ def launch_resample(raw_dir: str, train_dir: str, *, active_task: dict, task_log
     """启动第 1 步：把原始 wav 整理到训练目录。"""
     return start_task(
         "resample",
-        [sys.executable, "-m", "train_pipeline.resample", "--in_dir", "dataset_raw", "--speaker", raw_dir, "--out_dir2", train_dir],
+        [sys.executable, "-m", "train_pipeline.resample", "--in_dir", "training_data/source", "--speaker", raw_dir, "--out_dir2", train_dir],
         active_task=active_task,
         task_log_dir=task_log_dir,
         task_stage_labels=task_stage_labels,
@@ -407,7 +407,7 @@ def launch_pipeline_prep(
             tail_log_fn(active_task["log_path"]),
         )
     steps = [
-        ("resample", [sys.executable, "-m", "train_pipeline.resample", "--in_dir", "dataset_raw", "--speaker", raw_dir, "--out_dir2", train_dir], True),
+        ("resample", [sys.executable, "-m", "train_pipeline.resample", "--in_dir", "training_data/source", "--speaker", raw_dir, "--out_dir2", train_dir], True),
         (
             "preprocess_flist_config",
             [
@@ -497,7 +497,7 @@ def launch_pipeline_train_main(
         )
     ensure_runtime_base_models(model_name)
     steps = [
-        ("resample", [sys.executable, "-m", "train_pipeline.resample", "--in_dir", "dataset_raw", "--speaker", raw_dir, "--out_dir2", train_dir], True),
+        ("resample", [sys.executable, "-m", "train_pipeline.resample", "--in_dir", "training_data/source", "--speaker", raw_dir, "--out_dir2", train_dir], True),
         (
             "preprocess_flist_config",
             [

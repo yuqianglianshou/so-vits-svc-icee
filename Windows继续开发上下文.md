@@ -50,7 +50,7 @@ python -c "import torch; print(torch.__version__); print(torch.cuda.is_available
 
 本地固定目录是：
 
-- `pretrain/encoders/contentvec_hf/`
+- `model_assets/dependencies/encoders/contentvec_hf/`
 
 当前不再把 `fairseq ContentVec` 当作主线。
 
@@ -208,13 +208,13 @@ python -c "import torch; print(torch.__version__); print(torch.cuda.is_available
 
 主模型 checkpoint 主要在：
 
-- `logs/<模型名>/G_*.pth`
-- `logs/<模型名>/D_*.pth`
+- `model_assets/workspaces/<模型名>/G_*.pth`
+- `model_assets/workspaces/<模型名>/D_*.pth`
 
 只要满足下面几个条件，再次启动训练时通常就会沿着已有 checkpoint 继续：
 
 1. 还是同一个模型工作区
-2. `logs/<模型名>/config.json` 没改成完全不同结构
+2. `model_assets/workspaces/<模型名>/config.json` 没改成完全不同结构
 3. 旧 checkpoint 没被删掉
 
 ### 5.2 扩散训练

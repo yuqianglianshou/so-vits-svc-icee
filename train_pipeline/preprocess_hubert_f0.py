@@ -141,7 +141,14 @@ def process_one(filename, hmodel, f0p, device, diff=False, mel_extractor=None):
     torch.save(train_bundle, train_bundle_path)
 
 
-def process_batch(file_chunk, f0p, diff=False, device="cpu", config_path="configs/config.json", diff_config_path="configs/diffusion.yaml"):
+def process_batch(
+    file_chunk,
+    f0p,
+    diff=False,
+    device="cpu",
+    config_path="model_assets/workspaces/44k/config.json",
+    diff_config_path="model_assets/workspaces/44k/diffusion/config.yaml",
+):
     if hps is None or dconfig is None:
         load_runtime_configs(config_path, diff_config_path)
     logger.info("Loading speech encoder for content...")
@@ -185,13 +192,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--device', type=str, default=None)
     parser.add_argument(
-        "--in_dir", type=str, default="dataset/44k", help="path to input dir"
+        "--in_dir", type=str, default="training_data/processed/44k", help="path to input dir"
     )
     parser.add_argument(
-        "--config", type=str, default="configs/config.json", help="path to main config"
+        "--config", type=str, default="model_assets/workspaces/44k/config.json", help="path to main config"
     )
     parser.add_argument(
-        "--diff_config", type=str, default="configs/diffusion.yaml", help="path to diffusion config"
+        "--diff_config", type=str, default="model_assets/workspaces/44k/diffusion/config.yaml", help="path to diffusion config"
     )
     # 极致音质配置：默认启用浅层扩散
     parser.add_argument(

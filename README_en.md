@@ -129,14 +129,14 @@ The training page now starts with dependency preparation:
 
 - checking training dependencies and base models
 - importing missing files into standard locations
-- preparing training dependencies and base models under `pretrain/encoders/`, `pretrain/vocoders/`, and `pretrain/base_models/44k/`
+- preparing training dependencies and base models under `model_assets/dependencies/encoders/`, `model_assets/dependencies/vocoders/`, and `model_assets/dependencies/base_models/44k/`
 
 The current training console supports:
 
-- importing `dataset_raw/<speaker_dir>/*.wav`
+- importing `training_data/source/<speaker_dir>/*.wav`
 - suggesting safe directory names
 - deleting the current speaker directory
-- automatically binding the processed output dir to `dataset/44k/<speaker_dir>`
+- automatically binding the processed output dir to `training_data/processed/44k/<speaker_dir>`
 - defaulting the model output name to the current speaker directory name
 - one-click execution for resample, config generation, feature extraction, and main model training
 - training checks, stage judgement, task status, logs, and warning/error hints
@@ -144,8 +144,21 @@ The current training console supports:
 The current recommended workflow is **single-speaker training**:
 
 - one speaker directory per training run
-- one speaker should normally use one dedicated model output directory under `logs/<model_name>/`
+- one speaker should normally use one dedicated model output directory under `model_assets/workspaces/<model_name>/`
 - when you want to train a second speaker, switch to that speaker directory and use a new model output name instead of mixing speakers into the same model
+
+The main top-level directories can now be understood as three groups:
+
+- `training_data`
+  - `training_data/source/`: raw training audio
+  - `training_data/processed/`: preprocessed training data
+- `inference_data`
+  - `inference_data/inputs/`: inference inputs
+  - `inference_data/outputs/`: inference outputs
+- `model_assets`
+  - `model_assets/dependencies/`: base models, encoders, vocoders, and other dependencies
+  - `model_assets/workspaces/`: per-model training workspaces
+  - `model_assets/local/`: local inference model directory
 
 ### 3. Run inference
 
@@ -180,7 +193,7 @@ The remaining `dataset / preprocessing / training / inference` sections are stil
 
 `vec768l12` uses the current Transformers / HF ContentVec route.
 
-- ContentVec HF directory: `pretrain/encoders/contentvec_hf/`
+- ContentVec HF directory: `model_assets/dependencies/encoders/contentvec_hf/`
   - Required files:
     - `config.json`
     - `model.safetensors`
@@ -191,28 +204,28 @@ If the directory does not exist locally, the project can fall back to downloadin
 
 ##### **2. If hubertsoft is used as the speech encoder**
 - soft vc hubert: [hubert-soft-0d54a1f4.pt](https://github.com/bshall/hubert/releases/download/v0.1/hubert-soft-0d54a1f4.pt)
-  - Place it under the `pretrain` directory
+  - Place it under the `model_assets/dependencies` directory
 
 ##### **3. If whisper-ppg as the encoder**
 - download model at [medium.pt](https://openaipublic.azureedge.net/main/whisper/models/345ae4da62f9b3d59415adc60127b97c714f32e89e936602e85993674d08dcb1/medium.pt), the model fits `whisper-ppg`
 - or download model at [large-v2.pt](https://openaipublic.azureedge.net/main/whisper/models/81f7c96c852ee8fc832187b0132e569d6c3065a3252ed18e56effd0b6a73e524/large-v2.pt), the model fits `whisper-ppg-large`
-  - Place it under the `pretrain` directory
+  - Place it under the `model_assets/dependencies` directory
   
 ##### **4. If cnhubertlarge as the encoder**
 - download model at [chinese-hubert-large-fairseq-ckpt.pt](https://huggingface.co/TencentGameMate/chinese-hubert-large/resolve/main/chinese-hubert-large-fairseq-ckpt.pt)
-  - Place it under the `pretrain` directory
+  - Place it under the `model_assets/dependencies` directory
 
 ##### **5. If dphubert as the encoder**
 - download model at [DPHuBERT-sp0.75.pth](https://huggingface.co/pyf98/DPHuBERT/resolve/main/DPHuBERT-sp0.75.pth)
-  - Place it under the `pretrain` directory
+  - Place it under the `model_assets/dependencies` directory
 
 ##### **6. If WavLM is used as the encoder**
 - download model at  [WavLM-Base+.pt](https://valle.blob.core.windows.net/share/wavlm/WavLM-Base+.pt?sv=2020-08-04&st=2023-03-01T07%3A51%3A05Z&se=2033-03-02T07%3A51%3A00Z&sr=c&sp=rl&sig=QJXmSJG9DbMKf48UDIU1MfzIro8HQOf3sqlNXiflY1I%3D), the model fits `wavlmbase+`
-  - Place it under the `pretrain` directory
+  - Place it under the `model_assets/dependencies` directory
 
 ##### **7. If OnnxHubert/ContentVec as the encoder**
 - download model at [MoeSS-SUBModel](https://huggingface.co/NaruseMioShirakana/MoeSS-SUBModel/tree/main)
-  - Place it under the `pretrain` directory
+  - Place it under the `model_assets/dependencies` directory
 
 #### **List of Encoders**
 - "vec768l12"
@@ -234,13 +247,13 @@ If the directory does not exist locally, the project can fall back to downloadin
 - Pre-trained base model files:
   - [G_0.pth (vec768l12)](https://huggingface.co/Sucial/so-vits-svc4.1-pretrain_model/blob/main/vec768l12/G_0.pth)
   - [D_0.pth (vec768l12)](https://huggingface.co/Sucial/so-vits-svc4.1-pretrain_model/blob/main/vec768l12/D_0.pth)
-  - Place them under the `pretrain/base_models/44k` directory
+  - Place them under the `model_assets/dependencies/base_models/44k` directory
 
 - Diffusion pre-trained base model file:
   - [model_0.pt (diffusion/768l12)](https://huggingface.co/Sucial/so-vits-svc4.1-pretrain_model/blob/main/diffusion/768l12/model_0.pt)
-  - Put it in the `pretrain/base_models/44k/diffusion` directory
+  - Put it in the `model_assets/dependencies/base_models/44k/diffusion` directory
 
-At training start, the app will sync these base models into the runtime experiment directory `logs/44k/`. `logs/44k` is now mainly the output directory for training artifacts, not the long-term storage location for base models.
+At training start, the app will sync these base models into the runtime experiment directory `model_assets/workspaces/44k/`. `model_assets/workspaces/44k` is now mainly the output directory for training artifacts, not the long-term storage location for base models.
 
 These links match the current repository's default `vec768l12` / ContentVec route. Do not mix them with same-named files from other encoder folders such as `vec256l9`.
 
@@ -253,13 +266,13 @@ While the pretrained model typically does not pose copyright concerns, it is ess
 If you are using the `NSF-HIFIGAN enhancer` or `shallow diffusion`, you will need to download the pre-trained NSF-HIFIGAN model.
 
 - Pre-trained NSF-HIFIGAN Vocoder: [nsf_hifigan_20221211.zip](https://github.com/openvpi/vocoders/releases/download/nsf-hifigan-v1/nsf_hifigan_20221211.zip)
-  - Unzip and place the four files under the `pretrain/vocoders/nsf_hifigan` directory
+  - Unzip and place the four files under the `model_assets/dependencies/vocoders/nsf_hifigan` directory
 
 ```shell
 # nsf_hifigan
-wget -P pretrain/ https://github.com/openvpi/vocoders/releases/download/nsf-hifigan-v1/nsf_hifigan_20221211.zip
-unzip -od pretrain/vocoders/nsf_hifigan pretrain/nsf_hifigan_20221211.zip
-# Alternatively, you can manually download and place it in the pretrain/vocoders/nsf_hifigan directory
+wget -P model_assets/dependencies/ https://github.com/openvpi/vocoders/releases/download/nsf-hifigan-v1/nsf_hifigan_20221211.zip
+unzip -od model_assets/dependencies/vocoders/nsf_hifigan model_assets/dependencies/nsf_hifigan_20221211.zip
+# Alternatively, you can manually download and place it in the model_assets/dependencies/vocoders/nsf_hifigan directory
 # URL: https://github.com/openvpi/vocoders/releases/tag/nsf-hifigan-v1
 ```
 
@@ -268,10 +281,10 @@ unzip -od pretrain/vocoders/nsf_hifigan pretrain/nsf_hifigan_20221211.zip
 If you are using the `rmvpe` F0 Predictor, you will need to download the pre-trained RMVPE model.
 
 + download model at [rmvpe.zip](https://github.com/yxlllc/RMVPE/releases/download/230917/rmvpe.zip), this weight is recommended.
-  + unzip `rmvpe.zip`，and rename the `model.pt` file to `rmvpe.pt` and place it under the `pretrain/encoders` directory.
+  + unzip `rmvpe.zip`，and rename the `model.pt` file to `rmvpe.pt` and place it under the `model_assets/dependencies/encoders` directory.
 
 - ~~download model at [rmvpe.pt](https://huggingface.co/datasets/ylzz1997/rmvpe_pretrain_model/resolve/main/rmvpe.pt)~~
-  - ~~Place it under the `pretrain/encoders` directory~~
+  - ~~Place it under the `model_assets/dependencies/encoders` directory~~
 
 ##### FCPE(Preview version)
 
@@ -280,7 +293,7 @@ If you are using the `rmvpe` F0 Predictor, you will need to download the pre-tra
 If you are using the `fcpe` F0 Predictor, you will need to download the pre-trained FCPE model.
 
 - download model at [fcpe.pt](https://huggingface.co/datasets/ylzz1997/rmvpe_pretrain_model/resolve/main/fcpe.pt)
-  - Place it under the `pretrain` directory
+  - Place it under the `model_assets/dependencies` directory
 
 ## 📊 Dataset Preparation (Low-level Script Reference)
 
@@ -288,7 +301,7 @@ For the current customized repository, it is recommended to import speaker folde
 If you use the low-level CLI flow, the dataset structure is still the following:
 
 ```
-dataset_raw
+training_data/source
 ├───speaker0
 │   ├───xxx1-xxx1.wav
 │   ├───...
@@ -303,7 +316,7 @@ There are no specific restrictions on the format of the name for each audio file
 You can customize the speaker's name as showed below:
 
 ```
-dataset_raw
+training_data/source
 └───suijiSUI
     ├───1.wav
     ├───...
@@ -430,14 +443,14 @@ python -m train_pipeline.preprocess_hubert_f0 --f0_predictor dio --num_processes
 ```
 All the worker will be assigned to different GPU if you have more than one GPUs.
 
-After completing the above steps, the dataset directory will contain the preprocessed data, and the dataset_raw folder can be deleted.
+After completing the above steps, the processed dataset directory will contain the preprocessed data, and the training_data/source folder can be deleted.
 
 ## 🏋️‍ Training (Low-level Script Reference)
 
 ### Sovits Model
 
 ```shell
-python -m train_pipeline.train -c configs/config.json -m 44k
+python -m train_pipeline.train -c model_assets/workspaces/<model_name>/config.json -m <model_name>
 ```
 
 ### Diffusion Model (optional)
@@ -445,10 +458,10 @@ python -m train_pipeline.train -c configs/config.json -m 44k
 If the shallow diffusion function is needed, the diffusion model needs to be trained. The diffusion model training method is as follows:
 
 ```shell
-python -m train_pipeline.train_diff -c configs/diffusion.yaml
+python -m train_pipeline.train_diff -c model_assets/workspaces/<model_name>/diffusion.yaml
 ```
 
-During training, the model files will be saved to `logs/44k`, and the diffusion model will be saved to `logs/44k/diffusion`
+During training, the model files will be saved to `model_assets/workspaces/<model_name>/`, and the diffusion model will be saved to `model_assets/workspaces/<model_name>/diffusion/`.
 
 ## 🤖 Inference (Low-level Script Reference)
 
@@ -457,13 +470,13 @@ The section below is the CLI reference for `services/inference_main.py`.
 
 ```shell
 # Example
-python -m services.inference_main -m "logs/44k/G_30400.pth" -c "configs/config.json" -n "君の知らない物語-src.wav" -t 0 -s "nen"
+python -m services.inference_main -m "model_assets/workspaces/<model_name>/G_30400.pth" -c "model_assets/workspaces/<model_name>/config.json" -n "君の知らない物語-src.wav" -t 0 -s "<speaker_name>"
 ```
 
 Required parameters:
 - `-m` | `--model_path`: path to the model.
 - `-c` | `--config_path`: path to the configuration file.
-- `-n` | `--clean_names`: a list of wav file names located in the `raw` folder.
+- `-n` | `--clean_names`: a list of wav file names located in the `inference_data/inputs` folder.
 - `-t` | `--trans`: pitch shift, supports positive and negative (semitone) values.
 - `-s` | `--spk_list`: Select the speaker ID to use for conversion.
 - `-cl` | `--clip`: Forced audio clipping, set to 0 to disable(default), setting it to a non-zero value (duration in seconds) to enable.
@@ -509,10 +522,10 @@ No changes are required in the existing steps. Simply train an additional cluste
 
 - Training process:
   - Train on a machine with good CPU performance. According to extant experience, it takes about 4 minutes to train each speaker on a Tencent Cloud machine with 6-core CPU.
-  - Execute `python cluster/train_cluster.py`. The output model will be saved in `logs/44k/kmeans_10000.pt`.
+  - Execute `python cluster/train_cluster.py`. The output model will be saved in `model_assets/workspaces/44k/kmeans_10000.pt`.
   - The clustering model can currently be trained using the gpu by executing `python cluster/train_cluster.py --gpu`
 - Inference process:
-  - Specify `cluster_model_path` in `services/inference_main.py`. If not specified, the default is `logs/44k/kmeans_10000.pt`.
+  - Specify `cluster_model_path` in `services/inference_main.py`. If not specified, the default is `model_assets/workspaces/44k/kmeans_10000.pt`.
   - Specify `cluster_infer_ratio` in `services/inference_main.py`, where `0` means not using clustering at all, `1` means only using clustering, and usually `0.5` is sufficient.
 
 ### Feature retrieval
@@ -523,14 +536,14 @@ Introduction: As with the clustering scheme, the timbre leakage can be reduced, 
   First, it needs to be executed after generating hubert and f0: 
 
 ```shell
-python -m train_pipeline.train_index -c configs/config.json
+python -m train_pipeline.train_index -c model_assets/workspaces/<model_name>/config.json
 ```
 
-The output of the model will be in `logs/44k/feature_and_index.pkl`
+The output of the model will be in `model_assets/workspaces/<model_name>/feature_and_index.pkl`
 
 - Inference process: 
   - The `--feature_retrieval` needs to be formulated first, and the clustering mode automatically switches to the feature retrieval mode.
-  - Specify `cluster_model_path` in `services/inference_main.py`. If not specified, the default is `logs/44k/feature_and_index.pkl`.
+  - Specify `cluster_model_path` in `services/inference_main.py`. If not specified, the default is `model_assets/workspaces/44k/feature_and_index.pkl`.
   - Specify `cluster_infer_ratio` in `services/inference_main.py`, where `0` means not using feature retrieval at all, `1` means only using feature retrieval, and usually `0.5` is sufficient.
 
 ## 🗜️ Model compression
@@ -539,7 +552,7 @@ The generated model contains data that is needed for further training. If you co
 
 ```shell
 # Example
-python -m tools.compress_model -c="configs/config.json" -i="logs/44k/G_30400.pth" -o="logs/44k/release.pth"
+python -m tools.compress_model -c="model_assets/workspaces/<model_name>/config.json" -i="model_assets/workspaces/<model_name>/G_30400.pth" -o="model_assets/workspaces/<model_name>/release.pth"
 ```
 
 ## 👨‍🔧 Timbre mixing

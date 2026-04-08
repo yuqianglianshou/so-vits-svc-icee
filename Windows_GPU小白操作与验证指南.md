@@ -62,23 +62,23 @@ python -c "import torch; print(torch.__version__); print(torch.cuda.is_available
 
 必须准备：
 
-1. 语音编码器权重，放到 `pretrain/encoders/`
-2. 训练底模，放到 `pretrain/base_models/44k/`：
-   - `pretrain/base_models/44k/G_0.pth`
-   - `pretrain/base_models/44k/D_0.pth`
-   - `pretrain/base_models/44k/diffusion/model_0.pt`
+1. 语音编码器权重，放到 `model_assets/dependencies/encoders/`
+2. 训练底模，放到 `model_assets/dependencies/base_models/44k/`：
+   - `model_assets/dependencies/base_models/44k/G_0.pth`
+   - `model_assets/dependencies/base_models/44k/D_0.pth`
+   - `model_assets/dependencies/base_models/44k/diffusion/model_0.pt`
 2. 你要推理的模型与配置，例如：
-   - `logs/44k/G_xxx.pth`
-   - `logs/44k/config.json`
+   - `model_assets/workspaces/44k/G_xxx.pth`
+   - `model_assets/workspaces/44k/config.json`
 
 可选（但建议，用于更好效果）：
 
 1. 扩散模型：
-   - `logs/44k/diffusion/config.yaml`
+   - `model_assets/workspaces/44k/diffusion/config.yaml`
 2. 特征检索文件：
-   - `logs/44k/feature_and_index.pkl`
+   - `model_assets/workspaces/44k/feature_and_index.pkl`
 3. 声码器：
-   - `pretrain/vocoders/nsf_hifigan/`
+   - `model_assets/dependencies/vocoders/nsf_hifigan/`
 
 ## 4. 启动可视化界面（推荐）
 
@@ -120,7 +120,7 @@ python app_infer.py
    - 一般只改 `变调`
    - 点击“生成运行摘要”可记录本次测试条件
 6. 上传输入音频并点击“开始转换”
-7. 在右侧试听，最终文件在 `results/`
+7. 在右侧试听，最终文件在 `inference_data/outputs/`
 
 ## 5. 首次验证建议（10 分钟版本）
 

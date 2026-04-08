@@ -57,9 +57,9 @@ if __name__ == '__main__':
     # 自行选择能接受的方法，或将vst最大切片时间调整为1s，此处设为Ture，延迟大音质稳定一些
     raw_infer = True
     # 每个模型和config是唯一对应的
-    model_name = "logs/32k/G_174000-Copy1.pth"
-    config_name = "configs/config.json"
-    cluster_model_path = "logs/44k/kmeans_10000.pt"
+    model_name = "model_assets/workspaces/32k/G_174000-Copy1.pth"
+    config_name = "model_assets/workspaces/32k/config.json"
+    cluster_model_path = "model_assets/workspaces/44k/kmeans_10000.pt"
     svc_model = Svc(model_name, config_name, cluster_model_path=cluster_model_path)
     svc = RealTimeVC()
     # 此处与vst插件对应，不建议更改

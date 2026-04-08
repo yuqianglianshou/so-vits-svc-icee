@@ -27,7 +27,7 @@ from train_ui.workspace import (
 )
 
 
-RAW_DATASET_PARENT = ROOT / "dataset_raw"
+RAW_DATASET_PARENT = ROOT / "training_data/source"
 
 
 def ensure_raw_dataset_parent():
@@ -84,7 +84,7 @@ def infer_workspace_dataset_name(model_name: str):
 
 
 def scan_model_workspaces():
-    logs_dir = ROOT / "logs"
+    logs_dir = ROOT / "model_assets/workspaces"
     logs_dir.mkdir(parents=True, exist_ok=True)
     models = []
     for child in sorted(logs_dir.iterdir()):
@@ -101,7 +101,7 @@ def scan_model_workspaces():
 
 
 def last_selected_model_path() -> Path:
-    return ROOT / "logs" / "last_selected_model.json"
+    return ROOT / "model_assets/workspaces" / "last_selected_model.json"
 
 
 def save_last_selected_model(model_name: str):
@@ -266,7 +266,7 @@ def delete_dataset_directory(dataset_name: str):
 
     if dataset_dir == RAW_DATASET_PARENT:
         return (
-            render_dataset_import_result("禁止删除 dataset_raw 父目录。"),
+            render_dataset_import_result("禁止删除 training_data/source 父目录。"),
             gr.update(value=dataset_name),
             render_dataset_file_list(dataset_name),
             gr.update(value=dataset_name),
@@ -300,7 +300,7 @@ def prepare_delete_dataset(dataset_name: str):
     message = (
         f"确认删除：{dataset_dir.relative_to(ROOT).as_posix()}\n\n"
         f"该目录下共有 {wav_count} 个 wav 文件。\n"
-        "这个操作不会删除 logs 下的模型工作区。"
+        "这个操作不会删除 model_assets/workspaces 下的模型工作区。"
     )
     return (
         message,
@@ -427,7 +427,7 @@ def prepare_delete_model_workspace_action(
     train_dir = ROOT / default_train_dir_for_dataset(dataset_name)
     if not model_dir.exists() and not raw_dir.exists() and not train_dir.exists():
         return (
-            f"**logs/{model_name}**、**{resolve_raw_dataset_dir(dataset_name).as_posix()}**、**{default_train_dir_for_dataset(dataset_name)}** 都不存在，无需删除。",
+            f"**model_assets/workspaces/{model_name}**、**{resolve_raw_dataset_dir(dataset_name).as_posix()}**、**{default_train_dir_for_dataset(dataset_name)}** 都不存在，无需删除。",
             gr.update(visible=False),
             gr.update(value=""),
             gr.update(value=""),
@@ -437,7 +437,7 @@ def prepare_delete_model_workspace_action(
         f"当前模型：{model_name}\n"
         f"绑定模型数据目录：{dataset_name}\n\n"
         "这个操作会一并删除以下内容：\n"
-        f"- logs/{model_name}\n"
+        f"- model_assets/workspaces/{model_name}\n"
         f"- {resolve_raw_dataset_dir(dataset_name).as_posix()}\n"
         f"- {default_train_dir_for_dataset(dataset_name)}"
     )
@@ -484,7 +484,7 @@ def delete_model_workspace_action(
             speech_encoder_value_update_fn(load_model_speech_encoder_fn(next_model)),
             render_model_workspace_summary(next_model),
             render_dataset_import_result(
-                f"logs/{model_name}、{resolve_raw_dataset_dir(dataset_name).as_posix()}、{default_train_dir_for_dataset(dataset_name)} 都不存在，无需删除。"
+                f"model_assets/workspaces/{model_name}、{resolve_raw_dataset_dir(dataset_name).as_posix()}、{default_train_dir_for_dataset(dataset_name)} 都不存在，无需删除。"
             ),
         )
     remaining_models = scan_model_workspaces()

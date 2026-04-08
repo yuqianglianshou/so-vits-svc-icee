@@ -73,7 +73,7 @@ def ensure_localhost_bypass_proxy():
 
 
 def launch_tensorboard(*, root: Path, active_task: dict, ui_notice: dict) -> str:
-    tb_cmd = [sys.executable, "-m", "tensorboard.main", "--logdir=logs", "--port=6006"]
+    tb_cmd = [sys.executable, "-m", "tensorboard.main", "--logdir=model_assets/workspaces", "--port=6006"]
     current = active_task["proc"]
     if current is not None and current.poll() is None:
         return "当前已有训练任务在运行。TensorBoard 不占用训练槽位，请手动在终端启动。"

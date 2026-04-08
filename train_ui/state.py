@@ -51,7 +51,7 @@ def count_nonempty_lines(path: Path):
         return 0
 
 
-def collect_stage_state(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "dataset/44k"):
+def collect_stage_state(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "training_data/processed/44k"):
     """汇总训练阶段状态，供进度区和按钮状态统一使用。"""
     model_name = sanitize_model_name(model_name)
     raw_relative_dir = resolve_raw_dataset_dir(raw_dir)
@@ -179,8 +179,8 @@ def collect_stage_state(model_name: str = "44k", raw_dir: str = "default_dataset
             next_step = "如果主模型质量已稳定，可以进入第 5 步扩散训练。"
         button_state["train"] = {"value": "4. 启动主模型训练（已有产物）", "interactive": True}
     else:
-        stage_lines.append(compact_stage_line("4. 主模型训练", "可执行", f"输出到 logs/{model_name}"))
-        stage_items.append(("4. 主模型训练", "可执行", f"输出到 logs/{model_name}"))
+        stage_lines.append(compact_stage_line("4. 主模型训练", "可执行", f"输出到 model_assets/workspaces/{model_name}"))
+        stage_items.append(("4. 主模型训练", "可执行", f"输出到 model_assets/workspaces/{model_name}"))
         if next_step is None:
             next_step = f"执行第 4 步：启动主模型训练（{model_name}）。"
         button_state["train"] = {"value": "4. 启动主模型训练", "interactive": True}
@@ -200,8 +200,8 @@ def collect_stage_state(model_name: str = "44k", raw_dir: str = "default_dataset
             next_step = "如果扩散模型也已满足听感，可以进入第 6 步训练音色增强索引。"
         button_state["train_diff"] = {"value": "5. 启动扩散训练（已有产物）", "interactive": True}
     else:
-        stage_lines.append(compact_stage_line("5. 扩散训练", "可执行", f"输出到 logs/{model_name}/diffusion"))
-        stage_items.append(("5. 扩散训练", "可执行", f"输出到 logs/{model_name}/diffusion"))
+        stage_lines.append(compact_stage_line("5. 扩散训练", "可执行", f"输出到 model_assets/workspaces/{model_name}/diffusion"))
+        stage_items.append(("5. 扩散训练", "可执行", f"输出到 model_assets/workspaces/{model_name}/diffusion"))
         if next_step is None:
             next_step = "执行第 5 步：启动扩散训练。"
         button_state["train_diff"] = {"value": "5. 启动扩散训练", "interactive": True}
@@ -221,8 +221,8 @@ def collect_stage_state(model_name: str = "44k", raw_dir: str = "default_dataset
             next_step = "训练链路已基本齐备，可以转到推理界面做听感验收。"
         button_state["train_index"] = {"value": "6. 训练音色增强索引（已完成）", "interactive": True}
     else:
-        stage_lines.append(compact_stage_line("6. 训练音色增强索引", "可执行", f"输出到 logs/{model_name}/feature_and_index.pkl"))
-        stage_items.append(("6. 训练音色增强索引", "可执行", f"输出到 logs/{model_name}/feature_and_index.pkl"))
+        stage_lines.append(compact_stage_line("6. 训练音色增强索引", "可执行", f"输出到 model_assets/workspaces/{model_name}/feature_and_index.pkl"))
+        stage_items.append(("6. 训练音色增强索引", "可执行", f"输出到 model_assets/workspaces/{model_name}/feature_and_index.pkl"))
         if next_step is None:
             next_step = "执行第 6 步：训练音色增强索引。"
         button_state["train_index"] = {"value": "6. 训练音色增强索引", "interactive": True}

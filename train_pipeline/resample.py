@@ -77,9 +77,9 @@ def process_all_speakers():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--sr2", type=int, default=44100, help="sampling rate")
-    parser.add_argument("--in_dir", type=str, default="./dataset_raw", help="path to source dir")
+    parser.add_argument("--in_dir", type=str, default="./training_data/source", help="path to source dir")
     parser.add_argument("--speaker", type=str, default="", help="only process the selected speaker folder under in_dir")
-    parser.add_argument("--out_dir2", type=str, default="./dataset/44k", help="path to target dir")
+    parser.add_argument("--out_dir2", type=str, default="./training_data/processed/44k", help="path to target dir")
     args = parser.parse_args()
 
     print(f"CPU count: {cpu_count()}")

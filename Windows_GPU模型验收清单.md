@@ -6,11 +6,11 @@
 
 确认以下文件已就绪：
 
-1. 主模型：`logs/44k/G_*.pth`
-2. 主配置：`logs/44k/config.json`
-3. 音质增强模型：`logs/44k/diffusion/model_0.pt`
-4. 音质增强配置：`logs/44k/diffusion/config.yaml` 或对应配置路径
-5. 音色增强文件：`logs/44k/feature_and_index.pkl`
+1. 主模型：`model_assets/workspaces/44k/G_*.pth`
+2. 主配置：`model_assets/workspaces/44k/config.json`
+3. 音质增强模型：`model_assets/workspaces/44k/diffusion/model_0.pt`
+4. 音质增强配置：`model_assets/workspaces/44k/diffusion/config.yaml` 或对应配置路径
+5. 音色增强文件：`model_assets/workspaces/44k/feature_and_index.pkl`
 
 确认以下预设一致：
 

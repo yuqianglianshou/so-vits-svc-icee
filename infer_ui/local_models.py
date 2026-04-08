@@ -6,8 +6,8 @@ from pathlib import Path
 
 import gradio as gr
 
-LOCAL_MODEL_ROOT = "./trained"
-FALLBACK_MODEL_ROOT = "./logs"
+LOCAL_MODEL_ROOT = "./model_assets/local"
+FALLBACK_MODEL_ROOT = "./model_assets/workspaces"
 
 
 def _find_loadable_model_dirs(root_dir: str):
@@ -52,9 +52,9 @@ def load_last_selected_infer_model(local_model_root: str = LOCAL_MODEL_ROOT):
 
 
 def scan_local_models(local_model_root: str = LOCAL_MODEL_ROOT):
-    trained_dirs = _find_loadable_model_dirs(local_model_root)
+    local_dirs = _find_loadable_model_dirs(local_model_root)
     fallback_dirs = _find_loadable_model_dirs(FALLBACK_MODEL_ROOT)
-    return sorted(set(trained_dirs + fallback_dirs))
+    return sorted(set(local_dirs + fallback_dirs))
 
 
 def local_model_refresh_fn(local_model_root: str = LOCAL_MODEL_ROOT):

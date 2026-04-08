@@ -54,7 +54,7 @@ if __name__ == "__main__":
     parser.add_argument("-c",
                         "--config",
                         type=str,
-                        default='configs/config.json')
+                        default='model_assets/workspaces/44k/config.json')
     parser.add_argument("-i", "--input", type=str)
     parser.add_argument("-o", "--output", type=str, default=None)
     parser.add_argument('-hf', '--half', action='store_true', default=False, help='Save as FP16')

@@ -49,7 +49,7 @@ def wav2wav():
 
 
 if __name__ == '__main__':
-    model_name = "logs/44k/G_60000.pth"  # 模型地址
-    config_name = "configs/config.json"  # config地址
+    model_name = "model_assets/workspaces/44k/G_60000.pth"  # 模型地址
+    config_name = "model_assets/workspaces/44k/config.json"  # config地址
     svc_model = infer_tool.Svc(model_name, config_name)
     app.run(port=1145, host="0.0.0.0", debug=False, threaded=False)

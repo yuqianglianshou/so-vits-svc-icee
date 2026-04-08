@@ -29,11 +29,11 @@ def sanitize_dataset_name(dataset_name: str):
 
 
 def resolve_raw_dataset_dir(dataset_name: str):
-    """把训练语音数据名映射到 dataset_raw 下的真实目录。"""
+    """把训练语音数据名映射到 training_data/source 下的真实目录。"""
     name = sanitize_dataset_name(dataset_name)
     if not name:
         name = "default_dataset"
-    return Path("dataset_raw") / name
+    return Path("training_data/source") / name
 
 
 def default_train_dir_for_dataset(dataset_name: str):
@@ -41,11 +41,11 @@ def default_train_dir_for_dataset(dataset_name: str):
     name = sanitize_dataset_name(dataset_name)
     if not name:
         name = "default_dataset"
-    return f"dataset/44k/{name}"
+    return f"training_data/processed/44k/{name}"
 
 
 def sanitize_model_name(model_name: str):
-    """清洗模型工作区名称，避免把非法路径带入 logs/ 结构。"""
+    """清洗模型工作区名称，避免把非法路径带入 model_assets/workspaces/ 结构。"""
     name = (model_name or "").strip()
     if not name:
         return "default_model"
@@ -60,8 +60,8 @@ def sanitize_model_name(model_name: str):
 
 
 def model_root_dir(model_name: str) -> Path:
-    """返回某个训练模型在 logs/ 下的工作区目录。"""
-    return ROOT / "logs" / sanitize_model_name(model_name)
+    """返回某个训练模型在 model_assets/workspaces/ 下的工作区目录。"""
+    return ROOT / "model_assets/workspaces" / sanitize_model_name(model_name)
 
 
 def model_diffusion_dir(model_name: str) -> Path:

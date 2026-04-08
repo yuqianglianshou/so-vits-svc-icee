@@ -51,10 +51,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--train_list", type=str, default="./filelists/train.txt", help="path to train list")
     parser.add_argument("--val_list", type=str, default="./filelists/val.txt", help="path to val list")
-    parser.add_argument("--source_dir", type=str, default="./dataset/44k", help="path to source dir")
-    parser.add_argument("--config_out", type=str, default="configs/config.json", help="path to generated main config")
-    parser.add_argument("--diff_config_out", type=str, default="configs/diffusion.yaml", help="path to generated diffusion config")
-    parser.add_argument("--exp_dir", type=str, default="logs/44k/diffusion", help="path to diffusion experiment dir")
+    parser.add_argument("--source_dir", type=str, default="./training_data/processed/44k", help="path to source dir")
+    parser.add_argument("--config_out", type=str, default="model_assets/workspaces/44k/config.json", help="path to generated main config")
+    parser.add_argument("--diff_config_out", type=str, default="model_assets/workspaces/44k/diffusion.yaml", help="path to generated diffusion config")
+    parser.add_argument("--exp_dir", type=str, default="model_assets/workspaces/44k/diffusion", help="path to diffusion experiment dir")
     parser.add_argument(
         "--speech_encoder",
         type=str,

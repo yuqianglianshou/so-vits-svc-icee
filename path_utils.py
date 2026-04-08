@@ -5,10 +5,10 @@ import shutil
 
 ROOT = Path(__file__).resolve().parent
 
-PRETRAIN_DIR = ROOT / "pretrain"
-ENCODER_DIR = PRETRAIN_DIR / "encoders"
-VOCODER_DIR = PRETRAIN_DIR / "vocoders"
-BASE_MODEL_DIR = PRETRAIN_DIR / "base_models"
+MODEL_DEPENDENCIES_DIR = ROOT / "model_assets/dependencies"
+ENCODER_DIR = MODEL_DEPENDENCIES_DIR / "encoders"
+VOCODER_DIR = MODEL_DEPENDENCIES_DIR / "vocoders"
+BASE_MODEL_DIR = MODEL_DEPENDENCIES_DIR / "base_models"
 BASE_MODEL_44K_DIR = BASE_MODEL_DIR / "44k"
 BASE_MODEL_44K_DIFFUSION_DIR = BASE_MODEL_44K_DIR / "diffusion"
 
@@ -69,7 +69,7 @@ def _materialize_reference(source: Path, target: Path):
 
 
 def ensure_runtime_base_models(model_name: str = "44k"):
-    runtime_dir = ROOT / "logs" / model_name
+    runtime_dir = ROOT / "model_assets/workspaces" / model_name
     runtime_diff_dir = runtime_dir / "diffusion"
     runtime_dir.mkdir(parents=True, exist_ok=True)
     runtime_diff_dir.mkdir(parents=True, exist_ok=True)

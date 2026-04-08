@@ -117,10 +117,10 @@ class F0FilterException(Exception):
 class Svc(object):
     def __init__(self, net_g_path, config_path,
                  device=None,
-                 cluster_model_path="logs/44k/kmeans_10000.pt",
+                 cluster_model_path="model_assets/workspaces/44k/kmeans_10000.pt",
                  nsf_hifigan_enhance = False,
-                 diffusion_model_path="logs/44k/diffusion/model_0.pt",
-                 diffusion_config_path="configs/diffusion.yaml",
+                 diffusion_model_path="model_assets/workspaces/44k/diffusion/model_0.pt",
+                 diffusion_config_path="model_assets/workspaces/44k/diffusion/config.yaml",
                  shallow_diffusion = False,
                  only_diffusion = False,
                  spk_mix_enable = False,

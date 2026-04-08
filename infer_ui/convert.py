@@ -57,7 +57,7 @@ def vc_infer_with_model(
         loudness_envelope_adjustment,
     )
     model.clear_empty()
-    os.makedirs("results", exist_ok=True)
+    os.makedirs("inference_data/outputs", exist_ok=True)
     key = "auto" if auto_f0 else f"{int(vc_transform)}key"
     cluster = "_" if cluster_ratio == 0 else f"_{cluster_ratio}_"
     diffusion_tag = "sovits"
@@ -66,7 +66,7 @@ def vc_infer_with_model(
     if model.only_diffusion:
         diffusion_tag = "diff"
     output_file_name = f"result_{truncated_basename}_{sid}_{key}{cluster}{diffusion_tag}.{output_format}"
-    output_file = os.path.join("results", output_file_name)
+    output_file = os.path.join("inference_data/outputs", output_file_name)
     soundfile.write(output_file, audio, model.target_sample, format=output_format)
     return output_file
 
@@ -106,7 +106,7 @@ def convert_uploaded_audio(
     if len(audio.shape) > 1:
         audio = librosa.to_mono(audio.transpose(1, 0))
     truncated_basename = Path(input_audio).stem[:-6]
-    processed_audio = os.path.join("raw", f"{truncated_basename}.wav")
+    processed_audio = os.path.join("inference_data/inputs", f"{truncated_basename}.wav")
     soundfile.write(processed_audio, audio, sampling_rate, format="wav")
     output_file = vc_infer_with_model(
         model,

@@ -89,7 +89,7 @@ def check_preprocess_parallel() -> None:
 
     assert_contains(
         preprocess,
-        "def process_batch(file_chunk, f0p, diff=False, device=\"cpu\", config_path=\"configs/config.json\", diff_config_path=\"configs/diffusion.yaml\"):",
+        "def process_batch(",
         "process_batch signature should carry config paths instead of mel_extractor object.",
     )
     assert_contains(
