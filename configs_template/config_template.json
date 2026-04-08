@@ -1,7 +1,7 @@
 {
   "train": {
-    "log_interval": 200,
-    "eval_interval": 800,
+    "log_interval": 500,
+    "eval_interval": 4000,
     "seed": 1234,
     "epochs": 20000,
     "learning_rate": 0.0001,
@@ -25,19 +25,24 @@
     "keep_ckpts": 3,
     "keep_g_milestones": [
       8000,
-      16000,
       24000,
-      32000,
       40000,
-      48000,
       56000,
-      64000,
       72000,
-      80000,
       96000,
-      112000,
       128000,
-      160000
+      160000,
+      200000,
+      240000,
+      280000,
+      320000,
+      360000,
+      400000,
+      440000,
+      480000,
+      520000,
+      560000,
+      600000
     ],
     "all_in_mem": false,
     "num_workers": 5,
@@ -126,10 +131,6 @@
     "use_transformer_flow": false
   },
   "spk": {
-    "nyaru": 0,
-    "huiyu": 1,
-    "nen": 2,
-    "paimon": 3,
-    "yunhao": 4
+    "你的说话人名": 0
   }
 }

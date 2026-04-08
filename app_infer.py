@@ -209,7 +209,7 @@ with gr.Blocks(
 
     gr.HTML("""
         <div class="hero">
-            <h1>高音质唱歌转换</h1>
+            <h2>高音质唱歌转换</h2>
         </div>
     """)
 
@@ -219,19 +219,9 @@ with gr.Blocks(
     with gr.Row():
         with gr.Column(scale=6, elem_classes=["step-card", "card-model"]):
             gr.Markdown("### 1. 模型文件")
-            gr.Markdown("先选主模型和配置；推荐增强文件有的话再一起选。")
+            gr.Markdown("先选主模型和配置；推荐使用增强文件。")
             with gr.Tabs():
-                with gr.TabItem('上传') as local_model_tab_upload:
-                    gr.Markdown("#### 必需")
-                    with gr.Row():
-                        model_path = gr.File(label="So-VITS 模型 `.pth`")
-                        config_path = gr.File(label="模型配置 `.json`")
-                    with gr.Accordion("推荐增强", open=False):
-                        with gr.Row():
-                            diff_model_path = gr.File(label="音质增强模型 `.pt`")
-                            diff_config_path = gr.File(label="音质增强配置 `.yaml`")
-                        cluster_model_path = gr.File(label="音色增强文件 `.pkl` 或聚类文件")
-                with gr.TabItem('本地') as local_model_tab_local:
+                with gr.TabItem('本地模型') as local_model_tab_local:
                     gr.Markdown("#### 必需")
                     gr.Markdown(f"本地模型目录：`{LOCAL_MODEL_ROOT}`")
                     local_model_refresh_btn = gr.Button('刷新本地模型列表', elem_classes=["info-action"], elem_id="infer-local-refresh")
@@ -241,16 +231,24 @@ with gr.Blocks(
                         value=initial_local_model_selection,
                         interactive=True,
                     )
-                    with gr.Accordion("推荐增强", open=False):
+                    with gr.Accordion("可选增强文件", open=True):
                         with gr.Row():
                             diff_model_path = gr.File(label="音质增强模型 `.pt`")
                             diff_config_path = gr.File(label="音质增强配置 `.yaml`")
                         cluster_model_path = gr.File(label="音色增强文件 `.pkl` 或聚类文件")
-            with gr.Accordion("兼容性选项", open=False):
-                device = gr.Dropdown(label="推理设备", choices=["Auto",*cuda.keys(),"cpu"], value="Auto")
-
+                with gr.TabItem('手动上传') as local_model_tab_upload:
+                    gr.Markdown("#### 必需")
+                    with gr.Row():
+                        model_path = gr.File(label="So-VITS 模型 `.pth`")
+                        config_path = gr.File(label="模型配置 `.json`")
+                    with gr.Accordion("可选增强文件", open=True):
+                        with gr.Row():
+                            diff_model_path = gr.File(label="音质增强模型 `.pt`")
+                            diff_config_path = gr.File(label="音质增强配置 `.yaml`")
+                        cluster_model_path = gr.File(label="音色增强文件 `.pkl` 或聚类文件")
         with gr.Column(scale=5, elem_classes=["step-card", "card-status"]):
             gr.Markdown("### 2. 加载与确认")
+            device = gr.Dropdown(label="推理设备", choices=["Auto", *cuda.keys(), "cpu"], value="Auto")
             gr.Markdown("#### 准备情况")
             readiness_output = gr.HTML(
                 render_readiness_html(None, None, None, None, None, initial_local_model_enabled, initial_local_model_selection)
