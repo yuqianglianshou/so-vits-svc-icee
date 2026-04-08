@@ -5,7 +5,6 @@ import soundfile
 from inference import infer_tool
 from inference.infer_tool import Svc
 from quality_presets import BEST_QUALITY_PRESET
-from spkmix import spk_mix_map
 
 logging.getLogger('numba').setLevel(logging.WARNING)
 chunks_dict = infer_tool.read_temp("inference/chunks_temp.json")
@@ -21,9 +20,9 @@ def main():
     parser.add_argument('-m', '--model_path', type=str, default="model_assets/workspaces/44k/G_37600.pth", help='模型路径')
     parser.add_argument('-c', '--config_path', type=str, default="model_assets/workspaces/44k/config.json", help='配置文件路径')
     parser.add_argument('-cl', '--clip', type=float, default=0, help='音频强制切片，默认0为自动切片，单位为秒/s')
-    parser.add_argument('-n', '--clean_names', type=str, nargs='+', default=["君の知らない物語-src.wav"], help='wav文件名列表，放在raw文件夹下')
+    parser.add_argument('-n', '--clean_names', type=str, nargs='+', default=["君の知らない物語-src.wav"], help='wav文件名列表，放在 inference_data/inputs 文件夹下')
     parser.add_argument('-t', '--trans', type=int, nargs='+', default=[0], help='音高调整，支持正负（半音）')
-    parser.add_argument('-s', '--spk_list', type=str, nargs='+', default=['buyizi'], help='合成目标说话人名称')
+    parser.add_argument('-s', '--speaker', type=str, default='buyizi', help='当前模型音色名称')
     
     # 极致音质配置：固定参数
     parser.add_argument('-a', '--auto_predict_f0', action='store_true', default=False, help='[极致音质配置] 转换歌声时不要打开，会严重跑调')
@@ -37,7 +36,6 @@ def main():
     # 极致音质配置：默认启用浅层扩散
     parser.add_argument('-shd', '--shallow_diffusion', action='store_true', help='[极致音质配置] 启用浅层扩散（默认已启用）')
     parser.add_argument('--no_shallow_diffusion', action='store_true', help='[极致音质配置] 禁用浅层扩散')
-    parser.add_argument('-usm', '--use_spk_mix', action='store_true', default=False, help='是否使用角色融合')
     parser.add_argument('-lea', '--loudness_envelope_adjustment', type=float, default=BEST_QUALITY_PRESET["loudness_envelope_adjustment"], help='输入源响度包络替换输出响度包络融合比例，越靠近1越使用输出响度包络')
     # 极致音质配置：默认启用特征检索
     parser.add_argument('-fr', '--feature_retrieval', action='store_true', help='[极致音质配置] 启用特征检索（默认已启用）')
@@ -74,7 +72,7 @@ def main():
 
     clean_names = args.clean_names
     trans = args.trans
-    spk_list = args.spk_list
+    speaker = args.speaker
     slice_db = args.slice_db
     wav_format = args.wav_format
     auto_predict_f0 = args.auto_predict_f0
@@ -92,7 +90,6 @@ def main():
     diffusion_config_path = args.diffusion_config_path
     k_step = args.k_step
     only_diffusion = args.only_diffusion
-    use_spk_mix = args.use_spk_mix
     loudness_envelope_adjustment = args.loudness_envelope_adjustment
 
     # 极致音质配置：自动设置特征检索路径
@@ -115,56 +112,46 @@ def main():
                     diffusion_config_path,
                     shallow_diffusion,
                     only_diffusion,
-                    use_spk_mix,
                     feature_retrieval)
     
     infer_tool.mkdir(["inference_data/inputs", "inference_data/outputs"])
-    
-    if len(spk_mix_map)<=1:
-        use_spk_mix = False
-    if use_spk_mix:
-        spk_list = [spk_mix_map]
-    
+
     infer_tool.fill_a_to_b(trans, clean_names)
     for clean_name, tran in zip(clean_names, trans):
         raw_audio_path = f"inference_data/inputs/{clean_name}"
         if "." not in raw_audio_path:
             raw_audio_path += ".wav"
         infer_tool.format_wav(raw_audio_path)
-        for spk in spk_list:
-            kwarg = {
-                "raw_audio_path" : raw_audio_path,
-                "spk" : spk,
-                "tran" : tran,
-                "slice_db" : slice_db,
-                "cluster_infer_ratio" : cluster_infer_ratio,
-                "auto_predict_f0" : auto_predict_f0,
-                "noice_scale" : noice_scale,
-                "pad_seconds" : pad_seconds,
-                "clip_seconds" : clip,
-                "lg_num": lg,
-                "lgr_num" : lgr,
-                "f0_predictor" : f0p,
-                "enhancer_adaptive_key" : enhancer_adaptive_key,
-                "cr_threshold" : cr_threshold,
-                "k_step":k_step,
-                "use_spk_mix":use_spk_mix,
-                "second_encoding":second_encoding,
-                "loudness_envelope_adjustment":loudness_envelope_adjustment
-            }
-            audio = svc_model.slice_inference(**kwarg)
-            key = "auto" if auto_predict_f0 else f"{tran}key"
-            cluster_name = "" if cluster_infer_ratio == 0 else f"_{cluster_infer_ratio}"
-            isdiffusion = "sovits"
-            if shallow_diffusion :
-                isdiffusion = "sovdiff"
-            if only_diffusion :
-                isdiffusion = "diff"
-            if use_spk_mix:
-                spk = "spk_mix"
-            res_path = f'inference_data/outputs/{clean_name}_{key}_{spk}{cluster_name}_{isdiffusion}_{f0p}.{wav_format}'
-            soundfile.write(res_path, audio, svc_model.target_sample, format=wav_format)
-            svc_model.clear_empty()
+        kwarg = {
+            "raw_audio_path" : raw_audio_path,
+            "spk" : speaker,
+            "tran" : tran,
+            "slice_db" : slice_db,
+            "cluster_infer_ratio" : cluster_infer_ratio,
+            "auto_predict_f0" : auto_predict_f0,
+            "noice_scale" : noice_scale,
+            "pad_seconds" : pad_seconds,
+            "clip_seconds" : clip,
+            "lg_num": lg,
+            "lgr_num" : lgr,
+            "f0_predictor" : f0p,
+            "enhancer_adaptive_key" : enhancer_adaptive_key,
+            "cr_threshold" : cr_threshold,
+            "k_step":k_step,
+            "second_encoding":second_encoding,
+            "loudness_envelope_adjustment":loudness_envelope_adjustment
+        }
+        audio = svc_model.slice_inference(**kwarg)
+        key = "auto" if auto_predict_f0 else f"{tran}key"
+        cluster_name = "" if cluster_infer_ratio == 0 else f"_{cluster_infer_ratio}"
+        isdiffusion = "sovits"
+        if shallow_diffusion :
+            isdiffusion = "sovdiff"
+        if only_diffusion :
+            isdiffusion = "diff"
+        res_path = f'inference_data/outputs/{clean_name}_{key}_{speaker}{cluster_name}_{isdiffusion}_{f0p}.{wav_format}'
+        soundfile.write(res_path, audio, svc_model.target_sample, format=wav_format)
+        svc_model.clear_empty()
             
 if __name__ == '__main__':
     main()

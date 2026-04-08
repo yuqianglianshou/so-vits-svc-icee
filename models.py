@@ -453,13 +453,6 @@ class SynthesizerTrn(nn.Module):
         self.emb_uv = nn.Embedding(2, hidden_channels)
         self.character_mix = False
 
-    def EnableCharacterMix(self, n_speakers_map, device):
-        self.speaker_map = torch.zeros((n_speakers_map, 1, 1, self.gin_channels)).to(device)
-        for i in range(n_speakers_map):
-            self.speaker_map[i] = self.emb_g(torch.LongTensor([[i]]).to(device))
-        self.speaker_map = self.speaker_map.unsqueeze(0).to(device)
-        self.character_mix = True
-
     def forward(self, c, f0, uv, spec, g=None, c_lengths=None, spec_lengths=None, vol = None):
         g = self.emb_g(g).transpose(1,2)
 
@@ -530,4 +523,3 @@ class SynthesizerTrn(nn.Module):
         z = self.flow(z_p, c_mask, g=g, reverse=True)
         o = self.dec(z * c_mask, g=g, f0=f0)
         return o,f0
-

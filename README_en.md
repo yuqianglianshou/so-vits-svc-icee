@@ -12,7 +12,7 @@ This round of limited time update is coming to an end, the warehouse will enter 
 
 </div>
 
-> ✨ A studio that contains visible f0 editor, speaker mix timeline editor and other features (Where the Onnx models are used) : [MoeVoiceStudio](https://github.com/NaruseMioShirakana/MoeVoiceStudio)
+> ✨ A studio that contains a visible f0 editor and other Onnx-based features: [MoeVoiceStudio](https://github.com/NaruseMioShirakana/MoeVoiceStudio)
 
 > ✨ A fork with a greatly improved user interface: [34j/so-vits-svc-fork](https://github.com/34j/so-vits-svc-fork)
 
@@ -302,14 +302,10 @@ If you use the low-level CLI flow, the dataset structure is still the following:
 
 ```
 training_data/source
-├───speaker0
-│   ├───xxx1-xxx1.wav
-│   ├───...
-│   └───Lxx-0xx8.wav
-└───speaker1
-    ├───xx2-0xxx2.wav
+└───your_speaker
+    ├───xxx1-xxx1.wav
     ├───...
-    └───xxx7-xxx007.wav
+    └───Lxx-0xx8.wav
 ```
 There are no specific restrictions on the format of the name for each audio file (naming conventions such as `000001.wav` to `999999.wav` are also valid), but the file type must be `WAV``.
 
@@ -478,7 +474,7 @@ Required parameters:
 - `-c` | `--config_path`: path to the configuration file.
 - `-n` | `--clean_names`: a list of wav file names located in the `inference_data/inputs` folder.
 - `-t` | `--trans`: pitch shift, supports positive and negative (semitone) values.
-- `-s` | `--spk_list`: Select the speaker ID to use for conversion.
+- `-s` | `--speaker`: the speaker name used by the current model.
 - `-cl` | `--clip`: Forced audio clipping, set to 0 to disable(default), setting it to a non-zero value (duration in seconds) to enable.
 
 Optional parameters: see the next section
@@ -489,7 +485,6 @@ Optional parameters: see the next section
 - `-cr` | `--cluster_infer_ratio`: The proportion of clustering scheme or feature retrieval ranges from 0 to 1. If there is no training clustering model or feature retrieval, the default is 0.
 - `-eh` | `--enhance`: Whether to use NSF_HIFIGAN enhancer, this option has certain effect on sound quality enhancement for some models with few training sets, but has negative effect on well-trained models, so it is disabled by default.
 - `-shd` | `--shallow_diffusion`: Whether to use shallow diffusion, which can solve some electrical sound problems after use. This option is disabled by default. When this option is enabled, NSF_HIFIGAN enhancer will be disabled
-- `-usm` | `--use_spk_mix`: whether to use dynamic voice fusion
 - `-lea` | `--loudness_envelope_adjustment`：The adjustment of the input source's loudness envelope in relation to the fusion ratio of the output loudness envelope. The closer to 1, the more the output loudness envelope is used
 - `-fr` | `--feature_retrieval`：Whether to use feature retrieval If clustering model is used, it will be disabled, and `cm` and `cr` parameters will become the index path and mixing ratio of feature retrieval
   
@@ -555,42 +550,6 @@ The generated model contains data that is needed for further training. If you co
 python -m tools.compress_model -c="model_assets/workspaces/<model_name>/config.json" -i="model_assets/workspaces/<model_name>/G_30400.pth" -o="model_assets/workspaces/<model_name>/release.pth"
 ```
 
-## 👨‍🔧 Timbre mixing
-
-### Static Tone Mixing
-
-**Refer to `app_infer.py` file for stable Timbre mixing of the gadget/lab feature.**
-
-Introduction: This function can combine multiple models into one model (convex combination or linear combination of multiple model parameters) to create mixed voice that do not exist in reality
-
-**Note:**
-1. This feature is only supported for single-speaker models
-2. If you force a multi-speaker model, it is critical to make sure there are the same number of speakers in each model. This will ensure that sounds with the same SpeakerID can be mixed correctly.
-3. Ensure that the `model` fields in config.json of all models to be mixed are the same
-4. The mixed model can use any config.json file from the models being synthesized. However, the clustering model will not be functional after mixed.
-5. When batch uploading models, it is best to put the models into a folder and upload them together after selecting them
-6. It is suggested to adjust the mixing ratio between 0 and 100, or to other numbers, but unknown effects will occur in the linear combination mode
-7. After mixing, the file named output.pth will be saved in the root directory of the project
-8. Convex combination mode will perform Softmax to add the mix ratio to 1, while linear combination mode will not
-
-### Dynamic timbre mixing
-
-**Refer to the `spkmix.py` file for an introduction to dynamic timbre mixing**
-
-Character mix track writing rules:
-
-Role ID: \[\[Start time 1, end time 1, start value 1, start value 1], [Start time 2, end time 2, start value 2]]
-
-The start time must be the same as the end time of the previous one. The first start time must be 0, and the last end time must be 1 (time ranges from 0 to 1).
-
-All roles must be filled in. For unused roles, fill \[\[0., 1., 0., 0.]]
-
-The fusion value can be filled in arbitrarily, and the linear change from the start value to the end value within the specified period of time. The 
-
-internal linear combination will be automatically guaranteed to be 1 (convex combination condition), so it can be used safely
-
-Use the `--use_spk_mix` parameter when reasoning to enable dynamic timbre mixing
-
 ## 📤 Exporting to Onnx
 
 Use [tools/onnx_export.py](https://github.com/svc-develop-team/so-vits-svc/blob/4.0/onnx_export.py)
@@ -598,7 +557,7 @@ Use [tools/onnx_export.py](https://github.com/svc-develop-team/so-vits-svc/blob/
 - Create a folder named `checkpoints` and open it
 - Create a folder in the `checkpoints` folder as your project folder, naming it after your project, for example `aziplayer`
 - Rename your model as `model.pth`, the configuration file as `config.json`, and place them in the `aziplayer` folder you just created
-- Modify `"NyaruTaffy"` in `path = "NyaruTaffy"` in [tools/onnx_export.py](https://github.com/svc-develop-team/so-vits-svc/blob/4.0/onnx_export.py) to your project name, `path = "aziplayer"`（onnx_export_speaker_mix makes you can mix speaker's voice）
+- Modify `"NyaruTaffy"` in `path = "NyaruTaffy"` in [tools/onnx_export.py](https://github.com/svc-develop-team/so-vits-svc/blob/4.0/onnx_export.py) to your project name, for example `path = "aziplayer"`
 - Run `python -m tools.onnx_export`
 - Wait for it to finish running. A `model.onnx` will be generated in your project folder, which is the exported model.
 

@@ -116,18 +116,6 @@ class Unit2Mel(nn.Module):
         self.speaker_map = self.speaker_map.detach()
         return x.transpose(1, 2)
 
-    def init_spkmix(self, n_spk):
-        self.speaker_map = torch.zeros((n_spk,1,1,self.n_hidden))
-        hubert_hidden_size = self.input_channel
-        n_frames = 10
-        hubert = torch.randn((1, n_frames, hubert_hidden_size))
-        f0 = torch.randn((1, n_frames))
-        volume = torch.randn((1, n_frames))
-        spks = {}
-        for i in range(n_spk):
-            spks.update({i:1.0/float(self.n_spk)})
-        self.init_spkembed(hubert, f0.unsqueeze(-1), volume.unsqueeze(-1), spk_mix_dict=spks)
-
     def forward(self, units, f0, volume, spk_id = None, spk_mix_dict = None, aug_shift = None,
                 gt_spec=None, infer=True, infer_speedup=10, method='dpm-solver', k_step=300, use_tqdm=True):
         
@@ -164,4 +152,3 @@ class Unit2Mel(nn.Module):
         x = self.decoder(x, gt_spec=gt_spec, infer=infer, infer_speedup=infer_speedup, method=method, k_step=k_step, use_tqdm=use_tqdm)
     
         return x
-

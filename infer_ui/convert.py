@@ -32,7 +32,6 @@ def vc_infer_with_model(
     enhancer_adaptive_key,
     cr_threshold,
     k_step,
-    use_spk_mix,
     second_encoding,
     loudness_envelope_adjustment,
 ):
@@ -52,7 +51,6 @@ def vc_infer_with_model(
         enhancer_adaptive_key,
         cr_threshold,
         k_step,
-        use_spk_mix,
         second_encoding,
         loudness_envelope_adjustment,
     )
@@ -89,7 +87,6 @@ def convert_uploaded_audio(
     enhancer_adaptive_key,
     cr_threshold,
     k_step,
-    use_spk_mix,
     second_encoding,
     loudness_envelope_adjustment,
 ):
@@ -127,7 +124,6 @@ def convert_uploaded_audio(
         enhancer_adaptive_key,
         cr_threshold,
         k_step,
-        use_spk_mix,
         second_encoding,
         loudness_envelope_adjustment,
     )
@@ -156,7 +152,6 @@ def convert_tts_audio(
     enhancer_adaptive_key,
     cr_threshold,
     k_step,
-    use_spk_mix,
     second_encoding,
     loudness_envelope_adjustment,
 ):
@@ -195,7 +190,6 @@ def convert_tts_audio(
         enhancer_adaptive_key,
         cr_threshold,
         k_step,
-        use_spk_mix,
         second_encoding,
         loudness_envelope_adjustment,
     )
@@ -232,7 +226,6 @@ def quality_convert(model, sid, input_audio, quality_mode, vc_transform, cluster
         best_quality_preset["enhancer_adaptive_key"],
         best_quality_preset["cr_threshold"],
         k_step,
-        best_quality_preset["use_spk_mix"],
         best_quality_preset["second_encoding"],
         best_quality_preset["loudness_envelope_adjustment"],
     )

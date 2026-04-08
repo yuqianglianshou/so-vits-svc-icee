@@ -14,7 +14,6 @@ BEST_QUALITY_PRESET = {
     "cr_threshold": 0.05,
     "loudness_envelope_adjustment": 1.0,
     "second_encoding": True,
-    "use_spk_mix": False,
     "enhance": False,
     "only_diffusion": False,
 }

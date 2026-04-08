@@ -66,7 +66,6 @@ logging.getLogger('matplotlib').setLevel(logging.WARNING)
 logging.getLogger('multipart').setLevel(logging.WARNING)
 
 model = None
-spk = None
 debug = False
 
 cuda = {}
@@ -75,7 +74,7 @@ if torch.cuda.is_available():
         device_name = torch.cuda.get_device_properties(i).name
         cuda[f"CUDA:{i} {device_name}"] = f"cuda:{i}"
 
-def load_model_from_paths(model_path, config_path, cluster_model_path, device, enhance, diff_model_path, diff_config_path, only_diffusion, use_spk_mix):
+def load_model_from_paths(model_path, config_path, cluster_model_path, device, enhance, diff_model_path, diff_config_path, only_diffusion):
     """按给定文件路径加载 So-VITS 模型，并返回音色列表与加载摘要。"""
     global model
     try:
@@ -92,7 +91,6 @@ def load_model_from_paths(model_path, config_path, cluster_model_path, device, e
             diffusion_config_path=diff_config_path or "",
             shallow_diffusion=True if diff_model_path else False,
             only_diffusion=only_diffusion,
-            spk_mix_enable=use_spk_mix,
             feature_retrieval=fr,
         )
         spks, default_spk, summary_html = build_loaded_model_result(model, cluster_model_path, diff_model_path)
@@ -102,7 +100,7 @@ def load_model_from_paths(model_path, config_path, cluster_model_path, device, e
             traceback.print_exc()
         raise gr.Error(e)
 
-def modelAnalysis(model_path,config_path,cluster_model_path,device,enhance,diff_model_path,diff_config_path,only_diffusion,use_spk_mix,local_model_enabled,local_model_selection):
+def modelAnalysis(model_path,config_path,cluster_model_path,device,enhance,diff_model_path,diff_config_path,only_diffusion,local_model_enabled,local_model_selection):
     """统一处理上传模式和本地模式下的模型加载入口。"""
     try:
         if local_model_enabled:
@@ -125,7 +123,6 @@ def modelAnalysis(model_path,config_path,cluster_model_path,device,enhance,diff_
             diff_model_path,
             diff_config_path,
             only_diffusion,
-            use_spk_mix,
         )
     except Exception as e:
         if debug:
@@ -219,8 +216,6 @@ with gr.Blocks(
     local_model_enabled = gr.Checkbox(value=initial_local_model_enabled, visible=False)
     enhance = gr.Checkbox(value=False, visible=False)
     only_diffusion = gr.Checkbox(value=False, visible=False)
-    use_spk_mix = gr.Checkbox(value=False, visible=False)
-
     with gr.Row():
         with gr.Column(scale=6, elem_classes=["step-card", "card-model"]):
             gr.Markdown("### 1. 模型文件")
@@ -262,7 +257,7 @@ with gr.Blocks(
             )
             model_load_button = gr.Button(value="加载模型", variant="primary", elem_classes=["primary-action"])
             model_unload_button = gr.Button(value="卸载模型", elem_classes=["danger-secondary"], elem_id="infer-unload")
-            sid = gr.Dropdown(label="目标音色（说话人）")
+            sid = gr.Dropdown(label="当前模型音色")
             gr.Markdown("#### 加载结果")
             sid_output = gr.HTML(render_load_result_html("先加载主模型和配置。"))
 
@@ -354,7 +349,7 @@ with gr.Blocks(
     )
     model_load_button.click(
         modelAnalysis,
-        [model_path, config_path, cluster_model_path, device, enhance, diff_model_path, diff_config_path, only_diffusion, use_spk_mix, local_model_enabled, local_model_selection],
+        [model_path, config_path, cluster_model_path, device, enhance, diff_model_path, diff_config_path, only_diffusion, local_model_enabled, local_model_selection],
         [sid, sid_output],
         show_api=False,
     )

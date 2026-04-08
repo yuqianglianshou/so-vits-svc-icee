@@ -285,14 +285,10 @@ unzip -od model_assets/dependencies/vocoders/nsf_hifigan model_assets/dependenci
 
 ```
 training_data/source
-├───speaker0
-│   ├───xxx1-xxx1.wav
-│   ├───...
-│   └───Lxx-0xx8.wav
-└───speaker1
-    ├───xx2-0xxx2.wav
+└───your_speaker
+    ├───xxx1-xxx1.wav
     ├───...
-    └───xxx7-xxx007.wav
+    └───Lxx-0xx8.wav
 ```
 对于每一个音频文件的名称并没有格式的限制（`000001.wav`~`999999.wav` 之类的命名方式也是合法的），不过文件类型必须是 `wav`。当前训练链对扩展名大小写不敏感，因此 `.wav`、`.WAV`、`.Wav` 都会被识别。
 
@@ -441,7 +437,7 @@ python -m services.inference_main -m "model_assets/workspaces/<模型名>/G_3040
 + `-c` | `--config_path`：配置文件路径
 + `-n` | `--clean_names`：wav 文件名列表，放在 `inference_data/inputs` 文件夹下
 + `-t` | `--trans`：音高调整，支持正负（半音）
-+ `-s` | `--spk_list`：合成目标说话人名称
++ `-s` | `--speaker`：当前模型音色名称
 + `-cl` | `--clip`：音频强制切片，默认 0 为自动切片，单位为秒/s
 
 可选项部分：部分具体见下一节
@@ -452,7 +448,6 @@ python -m services.inference_main -m "model_assets/workspaces/<模型名>/G_3040
 + `-cr` | `--cluster_infer_ratio`：聚类方案或特征检索占比，范围 0-1，若没有训练聚类模型或特征检索则默认 0 即可
 + `-eh` | `--enhance`：是否使用 NSF_HIFIGAN 增强器，该选项对部分训练集少的模型有一定的音质增强效果，但是对训练好的模型有反面效果，默认关闭
 + `-shd` | `--shallow_diffusion`：是否使用浅层扩散，使用后可解决一部分电音问题，默认关闭，该选项打开时，NSF_HIFIGAN 增强器将会被禁止
-+ `-usm` | `--use_spk_mix`：是否使用角色融合/动态声线融合
 + `-lea` | `--loudness_envelope_adjustment`：输入源响度包络替换输出响度包络融合比例，越靠近 1 越使用输出响度包络
 + `-fr` | `--feature_retrieval`：是否使用特征检索，如果使用聚类模型将被禁用，且 cm 与 cr 参数将会变成特征检索的索引路径与混合比例
 
@@ -516,40 +511,6 @@ python -m train_pipeline.train_index -c model_assets/workspaces/<模型名>/conf
 python -m tools.compress_model -c="model_assets/workspaces/<模型名>/config.json" -i="model_assets/workspaces/<模型名>/G_30400.pth" -o="model_assets/workspaces/<模型名>/release.pth"
 ```
 
-## 👨‍🔧 声线混合
-
-### 静态声线混合
-
-**参考`app_infer.py`文件中，小工具/实验室特性的静态声线融合。**
-
-介绍：该功能可以将多个声音模型合成为一个声音模型（多个模型参数的凸组合或线性组合），从而制造出现实中不存在的声线
-**注意：**
-
-1. 该功能仅支持单说话人的模型
-2. 如果强行使用多说话人模型，需要保证多个模型的说话人数量相同，这样可以混合同一个 SpaekerID 下的声音
-3. 保证所有待混合模型的 config.json 中的 model 字段是相同的
-4. 输出的混合模型可以使用待合成模型的任意一个 config.json，但聚类模型将不能使用
-5. 批量上传模型的时候最好把模型放到一个文件夹选中后一起上传
-6. 混合比例调整建议大小在 0-100 之间，也可以调为其他数字，但在线性组合模式下会出现未知的效果
-7. 混合完毕后，文件将会保存在项目根目录中，文件名为 output.pth
-8. 凸组合模式会将混合比例执行 Softmax 使混合比例相加为 1，而线性组合模式不会
-
-### 动态声线混合
-
-**参考`spkmix.py`文件中关于动态声线混合的介绍**
-
-角色混合轨道 编写规则：
-
-角色 ID : \[\[起始时间 1, 终止时间 1, 起始数值 1, 起始数值 1], [起始时间 2, 终止时间 2, 起始数值 2, 起始数值 2]]
-
-起始时间和前一个的终止时间必须相同，第一个起始时间必须为 0，最后一个终止时间必须为 1 （时间的范围为 0-1）
-
-全部角色必须填写，不使用的角色填、[\[0., 1., 0., 0.]] 即可
-
-融合数值可以随便填，在指定的时间段内从起始数值线性变化为终止数值，内部会自动确保线性组合为 1（凸组合条件），可以放心使用
-
-推理的时候使用`--use_spk_mix`参数即可启用动态声线混合
-
 ## 📤 Onnx 导出
 
 使用 [tools/onnx_export.py](tools/onnx_export.py)
@@ -557,7 +518,7 @@ python -m tools.compress_model -c="model_assets/workspaces/<模型名>/config.js
 + 新建文件夹：`checkpoints` 并打开
 + 在`checkpoints`文件夹中新建一个文件夹作为项目文件夹，文件夹名为你的项目名称，比如`aziplayer`
 + 将你的模型更名为`model.pth`，配置文件更名为`config.json`，并放置到刚才创建的`aziplayer`文件夹下
-+ 将 [tools/onnx_export.py](tools/onnx_export.py) 中`path = "NyaruTaffy"` 的 `"NyaruTaffy"` 修改为你的项目名称，`path = "aziplayer" (onnx_export_speaker_mix，为支持角色混合的 onnx 导出）`
++ 将 [tools/onnx_export.py](tools/onnx_export.py) 中`path = "NyaruTaffy"` 的 `"NyaruTaffy"` 修改为你的项目名称，例如 `path = "aziplayer"`
 + 运行 `python -m tools.onnx_export`
 + 等待执行完毕，在你的项目文件夹下会生成一个`model.onnx`，即为导出的模型
 

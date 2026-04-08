@@ -35,6 +35,7 @@ def get_model_device_name(model):
 
 def build_loaded_model_result(model, cluster_model_path, diff_model_path):
     spks = list(model.spk2id.keys())
+    primary_spk = spks[0]
     cluster_status = "未加载"
     if cluster_model_path:
         cluster_status = f"已加载{'音色增强' if model.feature_retrieval else '聚类增强'}"
@@ -51,11 +52,10 @@ def build_loaded_model_result(model, cluster_model_path, diff_model_path):
         "So-VITS：已加载\n"
         f"音质增强：{diffusion_status}\n"
         f"音色增强：{cluster_status}\n"
-        f"音色数量：{len(spks)}\n"
-        f"默认音色：{spks[0]}\n"
+        f"当前模型音色：{primary_spk}\n"
         f"质量提示：{quality_hint}"
     )
-    return spks, spks[0], render_load_result_html(summary)
+    return [primary_spk], primary_spk, render_load_result_html(summary)
 
 
 def export_runtime_summary_for_model(model, sid, quality_mode, vc_transform, cluster_ratio, k_step):
