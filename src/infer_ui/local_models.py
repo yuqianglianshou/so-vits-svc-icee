@@ -10,6 +10,13 @@ LOCAL_MODEL_ROOT = "./model_assets/local"
 FALLBACK_MODEL_ROOT = "./model_assets/workspaces"
 
 
+def _checkpoint_step(path: Path) -> int:
+    try:
+        return int(path.stem.split("_")[-1])
+    except (TypeError, ValueError):
+        return -1
+
+
 def _find_loadable_model_dirs(root_dir: str):
     root_path = Path(root_dir)
     if not root_path.exists():
@@ -55,6 +62,19 @@ def scan_local_models(local_model_root: str = LOCAL_MODEL_ROOT):
     local_dirs = _find_loadable_model_dirs(local_model_root)
     fallback_dirs = _find_loadable_model_dirs(FALLBACK_MODEL_ROOT)
     return sorted(set(local_dirs + fallback_dirs))
+
+
+def list_local_model_checkpoints(local_model_selection: str):
+    model_dir = Path((local_model_selection or "").strip())
+    if not model_dir.exists():
+        return []
+    return [str(path) for path in sorted(model_dir.glob("G_*.pth"), key=_checkpoint_step)]
+
+
+def local_model_checkpoint_refresh_fn(local_model_selection: str):
+    checkpoints = list_local_model_checkpoints(local_model_selection)
+    value = checkpoints[-1] if checkpoints else None
+    return gr.update(choices=checkpoints, value=value, interactive=bool(checkpoints))
 
 
 def local_model_refresh_fn(local_model_root: str = LOCAL_MODEL_ROOT):

@@ -13,7 +13,9 @@ from src.gradio_api_info_fallback import apply_gradio_4_api_info_patch
 from src.inference.infer_tool import Svc
 from src.infer_ui.local_models import (
     LOCAL_MODEL_ROOT,
+    list_local_model_checkpoints,
     load_last_selected_infer_model,
+    local_model_checkpoint_refresh_fn,
     local_model_refresh_fn,
     persist_local_model_selection,
     save_last_selected_infer_model,
@@ -101,11 +103,9 @@ def load_model_from_paths(model_path, config_path, cluster_model_path, device, e
             traceback.print_exc()
         raise gr.Error(e)
 
-def modelAnalysis(model_path,config_path,cluster_model_path,device,enhance,diff_model_path,diff_config_path,only_diffusion,local_model_enabled,local_model_selection):
+def modelAnalysis(model_path,config_path,cluster_model_path,device,enhance,diff_model_path,diff_config_path,only_diffusion,local_model_enabled,local_model_selection,local_model_checkpoint_selection):
     """统一处理上传模式和本地模式下的模型加载入口。"""
     try:
-        if local_model_enabled:
-            save_last_selected_infer_model(local_model_selection)
         model_path, config_path, cluster_model_path, diff_model_path, diff_config_path = resolve_model_inputs(
             model_path,
             config_path,
@@ -114,7 +114,9 @@ def modelAnalysis(model_path,config_path,cluster_model_path,device,enhance,diff_
             diff_config_path,
             local_model_enabled,
             local_model_selection,
+            local_model_checkpoint_selection,
         )
+        save_last_selected_infer_model(str(Path(model_path).parent))
         return load_model_from_paths(
             model_path,
             config_path,
@@ -206,6 +208,8 @@ with gr.Blocks(
         if remembered_local_model in initial_local_model_choices
         else (initial_local_model_choices[0] if initial_local_model_choices else None)
     )
+    initial_local_model_checkpoints = list_local_model_checkpoints(initial_local_model_selection) if initial_local_model_selection else []
+    initial_local_model_checkpoint_selection = initial_local_model_checkpoints[-1] if initial_local_model_checkpoints else None
     initial_local_model_enabled = bool(initial_local_model_selection)
 
     gr.HTML("""
@@ -232,6 +236,12 @@ with gr.Blocks(
                         value=initial_local_model_selection,
                         interactive=True,
                     )
+                    local_model_checkpoint_selection = gr.Dropdown(
+                        label='选择主模型 G_*.pth',
+                        choices=initial_local_model_checkpoints,
+                        value=initial_local_model_checkpoint_selection,
+                        interactive=bool(initial_local_model_checkpoints),
+                    )
                     with gr.Accordion("可选增强文件", open=True):
                         with gr.Row():
                             diff_model_path = gr.File(label="音质增强模型 `.pt`")
@@ -252,7 +262,16 @@ with gr.Blocks(
             device = gr.Dropdown(label="推理设备", choices=["Auto", *cuda.keys(), "cpu"], value="Auto")
             gr.Markdown("#### 准备情况")
             readiness_output = gr.HTML(
-                render_readiness_html(None, None, None, None, None, initial_local_model_enabled, initial_local_model_selection)
+                render_readiness_html(
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    initial_local_model_enabled,
+                    initial_local_model_selection,
+                    initial_local_model_checkpoint_selection,
+                )
             )
             model_load_button = gr.Button(value="加载模型", variant="primary", elem_classes=["primary-action"])
             model_unload_button = gr.Button(value="卸载模型", elem_classes=["danger-secondary"], elem_id="infer-unload")
@@ -301,36 +320,46 @@ with gr.Blocks(
             vc_output1 = gr.HTML(render_convert_result_html("等待开始转换。"))
             vc_output2 = gr.Audio(label="输出音频", interactive=False, elem_classes=["result-audio"])
 
-    local_model_refresh_btn.click(local_model_refresh_fn, outputs=local_model_selection, show_api=False)
+    local_model_refresh_btn.click(local_model_refresh_fn, outputs=local_model_selection, show_api=False).then(
+        local_model_checkpoint_refresh_fn,
+        [local_model_selection],
+        [local_model_checkpoint_selection],
+        show_api=False,
+    ).then(
+        render_readiness_html,
+        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection, local_model_checkpoint_selection],
+        [readiness_output],
+        show_api=False,
+    )
     local_model_tab_upload.select(lambda: False, outputs=local_model_enabled, show_api=False)
     local_model_tab_local.select(lambda: True, outputs=local_model_enabled, show_api=False)
     model_path.change(
         render_readiness_html,
-        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection],
+        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection, local_model_checkpoint_selection],
         [readiness_output],
         show_api=False,
     )
     config_path.change(
         render_readiness_html,
-        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection],
+        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection, local_model_checkpoint_selection],
         [readiness_output],
         show_api=False,
     )
     diff_model_path.change(
         render_readiness_html,
-        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection],
+        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection, local_model_checkpoint_selection],
         [readiness_output],
         show_api=False,
     )
     diff_config_path.change(
         render_readiness_html,
-        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection],
+        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection, local_model_checkpoint_selection],
         [readiness_output],
         show_api=False,
     )
     cluster_model_path.change(
         render_readiness_html,
-        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection],
+        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection, local_model_checkpoint_selection],
         [readiness_output],
         show_api=False,
     )
@@ -341,14 +370,26 @@ with gr.Blocks(
         show_api=False,
     )
     local_model_selection.change(
+        local_model_checkpoint_refresh_fn,
+        [local_model_selection],
+        [local_model_checkpoint_selection],
+        show_api=False,
+    )
+    local_model_selection.change(
         render_readiness_html,
-        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection],
+        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection, local_model_checkpoint_selection],
+        [readiness_output],
+        show_api=False,
+    )
+    local_model_checkpoint_selection.change(
+        render_readiness_html,
+        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection, local_model_checkpoint_selection],
         [readiness_output],
         show_api=False,
     )
     model_load_button.click(
         modelAnalysis,
-        [model_path, config_path, cluster_model_path, device, enhance, diff_model_path, diff_config_path, only_diffusion, local_model_enabled, local_model_selection],
+        [model_path, config_path, cluster_model_path, device, enhance, diff_model_path, diff_config_path, only_diffusion, local_model_enabled, local_model_selection, local_model_checkpoint_selection],
         [sid, sid_output],
         show_api=False,
     )

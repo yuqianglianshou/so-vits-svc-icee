@@ -6,9 +6,13 @@ from __future__ import annotations
 """
 
 
-def render_readiness_html(model_file, config_file, diff_model_file, diff_config_file, cluster_file, local_model_enabled, local_model_selection):
+def render_readiness_html(model_file, config_file, diff_model_file, diff_config_file, cluster_file, local_model_enabled, local_model_selection, local_model_checkpoint_selection):
     """渲染模型文件准备情况摘要。"""
-    basic_ready = bool(local_model_selection) if local_model_enabled else model_file is not None and config_file is not None
+    basic_ready = (
+        bool(local_model_selection) and bool(local_model_checkpoint_selection)
+        if local_model_enabled else
+        model_file is not None and config_file is not None
+    )
     diff_ready = diff_model_file is not None and diff_config_file is not None
     cluster_ready = cluster_file is not None
 
