@@ -5,7 +5,7 @@
 
 [**English**](./README_en.md) | [**中文简体**](./README.md)
 
-[![Open In Colab](https://img.shields.io/badge/Colab-F9AB00?style=for-the-badge&logo=googlecolab&color=525252)](https://colab.research.google.com/github/svc-develop-team/so-vits-svc/blob/4.1-Stable/sovits4_for_colab.ipynb)
+[![Open In Colab](https://img.shields.io/badge/Colab-F9AB00?style=for-the-badge&logo=googlecolab&color=525252)](https://colab.research.google.com/github/svc-develop-team/so-vits-svc/blob/4.1-Stable/docs/notebooks/sovits4_for_colab.ipynb)
 [![Licence](https://img.shields.io/badge/LICENSE-AGPL3.0-green.svg?style=for-the-badge)](https://github.com/svc-develop-team/so-vits-svc/blob/4.1-Stable/LICENSE)
 
 This round of limited time update is coming to an end, the warehouse will enter the Archieve state, please know
@@ -70,7 +70,7 @@ The singing voice conversion model uses SoftVC content encoder to extract speech
 ```
 
 ### 🆕 Shallow diffusion
-![Diagram](shadowdiffusion.png)
+![Diagram](docs/assets/shadowdiffusion.png)
 
 ## 💬 Python Version
 
@@ -118,7 +118,7 @@ pip install -r requirements.txt
 Recommended entrypoint:
 
 ```shell
-python app_train.py
+python -m src.app_train
 ```
 
 On Windows you can also double-click:
@@ -165,7 +165,7 @@ The main top-level directories can now be understood as three groups:
 Recommended entrypoint:
 
 ```shell
-python app_infer.py
+python -m src.app_infer
 ```
 
 The current inference page supports:
@@ -297,7 +297,7 @@ If you are using the `fcpe` F0 Predictor, you will need to download the pre-trai
 
 ## 📊 Dataset Preparation (Low-level Script Reference)
 
-For the current customized repository, it is recommended to import speaker folders from `app_train.py`.  
+For the current customized repository, it is recommended to import speaker folders from the training page started with `python -m src.app_train`.  
 If you use the low-level CLI flow, the dataset structure is still the following:
 
 ```
@@ -336,7 +336,7 @@ After slicing, it is recommended to remove any audio clips that are excessively 
 ### 1. Resample to 44100Hz and mono
 
 ```shell
-python -m train_pipeline.resample
+python -m src.train_pipeline.resample
 ```
 
 #### Cautions
@@ -346,7 +346,7 @@ Current `train_pipeline/resample.py` only trims silence and resamples audio. Lou
 ### 2. Automatically split the dataset into training and validation sets, and generate configuration files.
 
 ```shell
-python -m train_pipeline.preprocess_flist_config --speech_encoder vec768l12
+python -m src.train_pipeline.preprocess_flist_config --speech_encoder vec768l12
 ```
 
 speech_encoder has the following options
@@ -369,7 +369,7 @@ If the speech_encoder argument is omitted, the default value is `vec768l12`
 Add `--vol_aug` if you want to enable loudness embedding:
 
 ```shell
-python -m train_pipeline.preprocess_flist_config --speech_encoder vec768l12 --vol_aug
+python -m src.train_pipeline.preprocess_flist_config --speech_encoder vec768l12 --vol_aug
 ```
 
 After enabling loudness embedding, the trained model will match the loudness of the input source; otherwise, it will match the loudness of the training set.
@@ -406,7 +406,7 @@ nsf-snake-hifigan
 ### 3. Generate hubert and f0
 
 ```shell
-python -m train_pipeline.preprocess_hubert_f0 --f0_predictor dio
+python -m src.train_pipeline.preprocess_hubert_f0 --f0_predictor dio
 ```
 
 f0_predictor has the following options
@@ -427,7 +427,7 @@ If the f0_predictor parameter is omitted, the default value is `rmvpe`
 If you want shallow diffusion (optional), you need to add the `--use_diff` parameter, for example:
 
 ```shell
-python -m train_pipeline.preprocess_hubert_f0 --f0_predictor dio --use_diff
+python -m src.train_pipeline.preprocess_hubert_f0 --f0_predictor dio --use_diff
 ```
 
 **Speed Up preprocess**
@@ -435,7 +435,7 @@ python -m train_pipeline.preprocess_hubert_f0 --f0_predictor dio --use_diff
 If your dataset is pretty large,you can increase the param `--num_processes` like that:
 
 ```shell
-python -m train_pipeline.preprocess_hubert_f0 --f0_predictor dio --num_processes 8
+python -m src.train_pipeline.preprocess_hubert_f0 --f0_predictor dio --num_processes 8
 ```
 All the worker will be assigned to different GPU if you have more than one GPUs.
 
@@ -446,7 +446,7 @@ After completing the above steps, the processed dataset directory will contain t
 ### Sovits Model
 
 ```shell
-python -m train_pipeline.train -c model_assets/workspaces/<model_name>/config.json -m <model_name>
+python -m src.train_pipeline.train -c model_assets/workspaces/<model_name>/config.json -m <model_name>
 ```
 
 ### Diffusion Model (optional)
@@ -454,19 +454,19 @@ python -m train_pipeline.train -c model_assets/workspaces/<model_name>/config.js
 If the shallow diffusion function is needed, the diffusion model needs to be trained. The diffusion model training method is as follows:
 
 ```shell
-python -m train_pipeline.train_diff -c model_assets/workspaces/<model_name>/diffusion.yaml
+python -m src.train_pipeline.train_diff -c model_assets/workspaces/<model_name>/diffusion.yaml
 ```
 
 During training, the model files will be saved to `model_assets/workspaces/<model_name>/`, and the diffusion model will be saved to `model_assets/workspaces/<model_name>/diffusion/`.
 
 ## 🤖 Inference (Low-level Script Reference)
 
-If you are using the current customized repository, prefer `app_infer.py`.  
-The section below is the CLI reference for `services/inference_main.py`.
+If you are using the current customized repository, prefer `python -m src.app_infer`.  
+The section below is the CLI reference for `python -m src.services.inference_main`.
 
 ```shell
 # Example
-python -m services.inference_main -m "model_assets/workspaces/<model_name>/G_30400.pth" -c "model_assets/workspaces/<model_name>/config.json" -n "君の知らない物語-src.wav" -t 0 -s "<speaker_name>"
+python -m src.services.inference_main -m "model_assets/workspaces/<model_name>/G_30400.pth" -c "model_assets/workspaces/<model_name>/config.json" -n "君の知らない物語-src.wav" -t 0 -s "<speaker_name>"
 ```
 
 Required parameters:
@@ -531,7 +531,7 @@ Introduction: As with the clustering scheme, the timbre leakage can be reduced, 
   First, it needs to be executed after generating hubert and f0: 
 
 ```shell
-python -m train_pipeline.train_index -c model_assets/workspaces/<model_name>/config.json
+python -m src.train_pipeline.train_index -c model_assets/workspaces/<model_name>/config.json
 ```
 
 The output of the model will be in `model_assets/workspaces/<model_name>/feature_and_index.pkl`
@@ -547,7 +547,7 @@ The generated model contains data that is needed for further training. If you co
 
 ```shell
 # Example
-python -m tools.compress_model -c="model_assets/workspaces/<model_name>/config.json" -i="model_assets/workspaces/<model_name>/G_30400.pth" -o="model_assets/workspaces/<model_name>/release.pth"
+python -m src.tools.compress_model -c="model_assets/workspaces/<model_name>/config.json" -i="model_assets/workspaces/<model_name>/G_30400.pth" -o="model_assets/workspaces/<model_name>/release.pth"
 ```
 
 ## 📤 Exporting to Onnx
@@ -558,7 +558,7 @@ Use [tools/onnx_export.py](https://github.com/svc-develop-team/so-vits-svc/blob/
 - Create a folder in the `checkpoints` folder as your project folder, naming it after your project, for example `aziplayer`
 - Rename your model as `model.pth`, the configuration file as `config.json`, and place them in the `aziplayer` folder you just created
 - Modify `"NyaruTaffy"` in `path = "NyaruTaffy"` in [tools/onnx_export.py](https://github.com/svc-develop-team/so-vits-svc/blob/4.0/onnx_export.py) to your project name, for example `path = "aziplayer"`
-- Run `python -m tools.onnx_export`
+- Run `python -m src.tools.onnx_export`
 - Wait for it to finish running. A `model.onnx` will be generated in your project folder, which is the exported model.
 
 Note: For Hubert Onnx models, please use the models provided by MoeSS. Currently, they cannot be exported on their own (Hubert in fairseq has many unsupported operators and things involving constants that can cause errors or result in problems with the input/output shape and results when exported.)

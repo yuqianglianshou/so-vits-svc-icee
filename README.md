@@ -5,7 +5,7 @@
 
 [**English**](./README_en.md) | [**中文简体**](./README.md)
 
-[![在Google Cloab中打开](https://img.shields.io/badge/Colab-F9AB00?style=for-the-badge&logo=googlecolab&color=525252)](https://colab.research.google.com/github/svc-develop-team/so-vits-svc/blob/4.1-Stable/sovits4_for_colab.ipynb)
+[![在Google Cloab中打开](https://img.shields.io/badge/Colab-F9AB00?style=for-the-badge&logo=googlecolab&color=525252)](https://colab.research.google.com/github/svc-develop-team/so-vits-svc/blob/4.1-Stable/docs/notebooks/sovits4_for_colab.ipynb)
 [![LICENSE](https://img.shields.io/badge/LICENSE-AGPL3.0-green.svg?style=for-the-badge)](./LICENSE)
 
 
@@ -51,8 +51,8 @@
 - 训练前特征包：`*.train.pt`
   - 统一打包 `audio / soft / f0 / uv / spec / volume`
 - 主入口：
-  - 训练：`app_train.py`
-  - 推理：`app_infer.py`
+  - 训练：`python -m src.app_train`
+  - 推理：`python -m src.app_infer`
 
 相关说明文档：
 
@@ -71,7 +71,7 @@
 - 当前仓库推荐按单说话人、单模型工作区方式训练
 
 ### 🆕 关于浅扩散
-![Diagram](shadowdiffusion.png)
+![Diagram](docs/assets/shadowdiffusion.png)
 
 ## 💬 关于 Python 版本问题
 
@@ -140,7 +140,7 @@ pip install -r requirements.txt
 推荐入口：
 
 ```shell
-python app_train.py
+python -m src.app_train
 ```
 
 Windows 也可以直接双击：
@@ -187,7 +187,7 @@ Windows 也可以直接双击：
 推荐入口：
 
 ```shell
-python app_infer.py
+python -m src.app_infer
 ```
 
 当前推理页支持：
@@ -207,8 +207,8 @@ python app_infer.py
 
 如果你只是正常使用当前仓库，优先使用：
 
-- `app_train.py`
-- `app_infer.py`
+- `python -m src.app_train`
+- `python -m src.app_infer`
 
 ## 📥 预先下载的模型文件
 
@@ -280,7 +280,7 @@ unzip -od model_assets/dependencies/vocoders/nsf_hifigan model_assets/dependenci
 
 ## 📊 数据集准备（底层脚本参考）
 
-当前仓库推荐直接在 `app_train.py` 页面中导入说话人目录。  
+当前仓库推荐直接在 `python -m src.app_train` 启动的训练页面中导入说话人目录。  
 如果你走命令行底层流程，数据集结构仍然是下面这种：
 
 ```
@@ -318,7 +318,7 @@ training_data/source
 ### 1. 重采样至 44100Hz 单声道
 
 ```shell
-python -m train_pipeline.resample
+python -m src.train_pipeline.resample
 ```
 
 #### 注意
@@ -328,7 +328,7 @@ python -m train_pipeline.resample
 ### 2. 自动划分训练集、验证集，以及自动生成配置文件
 
 ```shell
-python -m train_pipeline.preprocess_flist_config --speech_encoder vec768l12
+python -m src.train_pipeline.preprocess_flist_config --speech_encoder vec768l12
 ```
 
 当前仓库中，`speech_encoder` 主线固定为：
@@ -345,7 +345,7 @@ vec768l12
 如果你要做对照实验或明确希望关闭它，请增加 `--no_vol_aug` 参数，例如：
 
 ```shell
-python -m train_pipeline.preprocess_flist_config --speech_encoder vec768l12 --no_vol_aug
+python -m src.train_pipeline.preprocess_flist_config --speech_encoder vec768l12 --no_vol_aug
 ```
 
 这里的“响度嵌入”指的是把 `volume` 包络作为模型输入特征；它不同于对原始训练音频直接做响度归一化。当前项目已经移除了 `resample.py` 中的内置音量归一化处理。
@@ -384,7 +384,7 @@ nsf-snake-hifigan
 ### 3. 生成内容特征与 f0
 
 ```shell
-python -m train_pipeline.preprocess_hubert_f0 --f0_predictor rmvpe
+python -m src.train_pipeline.preprocess_hubert_f0 --f0_predictor rmvpe
 ```
 
 当前仓库主线固定使用 `rmvpe`。如果传入其他值，程序也会自动切回 `rmvpe`。
@@ -392,13 +392,13 @@ python -m train_pipeline.preprocess_hubert_f0 --f0_predictor rmvpe
 尚若需要浅扩散功能（可选），需要增加--use_diff 参数，比如
 
 ```shell
-python -m train_pipeline.preprocess_hubert_f0 --f0_predictor rmvpe --use_diff
+python -m src.train_pipeline.preprocess_hubert_f0 --f0_predictor rmvpe --use_diff
 ```
 
 **加速预处理**
 如若您的数据集比较大，可以尝试添加`--num_processes`参数：
 ```shell
-python -m train_pipeline.preprocess_hubert_f0 --f0_predictor rmvpe --use_diff --num_processes 8
+python -m src.train_pipeline.preprocess_hubert_f0 --f0_predictor rmvpe --use_diff --num_processes 8
 ```
 所有的Workers会被自动分配到多个线程上
 
@@ -409,7 +409,7 @@ python -m train_pipeline.preprocess_hubert_f0 --f0_predictor rmvpe --use_diff --
 ### 主模型训练
 
 ```shell
-python -m train_pipeline.train -c model_assets/workspaces/<模型名>/config.json -m <模型名>
+python -m src.train_pipeline.train -c model_assets/workspaces/<模型名>/config.json -m <模型名>
 ```
 
 ### 扩散模型（可选）
@@ -417,19 +417,19 @@ python -m train_pipeline.train -c model_assets/workspaces/<模型名>/config.jso
 尚若需要浅扩散功能，需要训练扩散模型，扩散模型训练方法为：
 
 ```shell
-python -m train_pipeline.train_diff -c model_assets/workspaces/<模型名>/diffusion.yaml
+python -m src.train_pipeline.train_diff -c model_assets/workspaces/<模型名>/diffusion.yaml
 ```
 
 模型训练结束后，模型文件保存在 `model_assets/workspaces/<模型名>/` 目录下，扩散模型在 `model_assets/workspaces/<模型名>/diffusion/` 下。
 
 ## 🤖 推理（底层脚本参考）
 
-如果你使用当前仓库改造版，优先使用 [app_infer.py](app_infer.py)。  
-下面这部分是 [services/inference_main.py](services/inference_main.py) 的命令行参考。
+如果你使用当前仓库改造版，优先使用 `python -m src.app_infer`。  
+下面这部分是 `python -m src.services.inference_main` 的命令行参考。
 
 ```shell
 # 例
-python -m services.inference_main -m "model_assets/workspaces/<模型名>/G_30400.pth" -c "model_assets/workspaces/<模型名>/config.json" -n "君の知らない物語-src.wav" -t 0 -s "<说话人名>"
+python -m src.services.inference_main -m "model_assets/workspaces/<模型名>/G_30400.pth" -c "model_assets/workspaces/<模型名>/config.json" -n "君の知らない物語-src.wav" -t 0 -s "<说话人名>"
 ```
 
 必填项部分：
@@ -489,7 +489,7 @@ python -m services.inference_main -m "model_assets/workspaces/<模型名>/G_3040
   首先需要在生成 hubert 与 f0 后执行：
 
 ```shell
-python -m train_pipeline.train_index -c model_assets/workspaces/<模型名>/config.json
+python -m src.train_pipeline.train_index -c model_assets/workspaces/<模型名>/config.json
 ```
 
 模型的输出会在`model_assets/workspaces/<模型名>/feature_and_index.pkl`
@@ -508,7 +508,7 @@ python -m train_pipeline.train_index -c model_assets/workspaces/<模型名>/conf
 
 ```shell
 # 例
-python -m tools.compress_model -c="model_assets/workspaces/<模型名>/config.json" -i="model_assets/workspaces/<模型名>/G_30400.pth" -o="model_assets/workspaces/<模型名>/release.pth"
+python -m src.tools.compress_model -c="model_assets/workspaces/<模型名>/config.json" -i="model_assets/workspaces/<模型名>/G_30400.pth" -o="model_assets/workspaces/<模型名>/release.pth"
 ```
 
 ## 📤 Onnx 导出
@@ -519,7 +519,7 @@ python -m tools.compress_model -c="model_assets/workspaces/<模型名>/config.js
 + 在`checkpoints`文件夹中新建一个文件夹作为项目文件夹，文件夹名为你的项目名称，比如`aziplayer`
 + 将你的模型更名为`model.pth`，配置文件更名为`config.json`，并放置到刚才创建的`aziplayer`文件夹下
 + 将 [tools/onnx_export.py](tools/onnx_export.py) 中`path = "NyaruTaffy"` 的 `"NyaruTaffy"` 修改为你的项目名称，例如 `path = "aziplayer"`
-+ 运行 `python -m tools.onnx_export`
++ 运行 `python -m src.tools.onnx_export`
 + 等待执行完毕，在你的项目文件夹下会生成一个`model.onnx`，即为导出的模型
 
 注意：当前仓库的主线已固定为 HF ContentVec。若你仍需尝试历史 Onnx 路线，请把它视为额外实验能力，而不是当前主线工作流的一部分。
