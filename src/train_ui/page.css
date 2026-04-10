@@ -1,0 +1,664 @@
+/* 训练页面样式。
+ * 这里保留现有视觉效果，把长 CSS 从 app_train.py 中拆出来，
+ * 让训练流程代码和样式定义分开维护。
+ */
+    /* 主题变量：先收口一小批高频值，后续继续整理时更容易扩展。 */
+    :root {
+        --train-page-card-radius: 18px;
+        --train-page-section-radius: 24px;
+        --train-page-card-border: 1px solid rgba(34, 71, 53, 0.10);
+        --train-page-card-bg: rgba(255, 252, 246, 0.82);
+        --train-page-card-bg-soft: linear-gradient(180deg, rgba(255, 252, 247, 0.98) 0%, rgba(248, 242, 234, 0.98) 100%);
+        --train-page-text-main: #253428;
+        --train-page-text-muted: #7a746b;
+        --train-page-text-subtle: #6d655c;
+        --train-page-ok: #1f8f4c;
+        --train-page-warn: #d97706;
+        --train-page-danger: #c0392b;
+        --train-page-info: #1d4ed8;
+        --train-page-modal-width: min(500px, calc(100vw - 36px));
+        --train-page-modal-surface: linear-gradient(180deg, #fffefe 0%, #fff9f8 100%);
+        --train-page-modal-border: 1px solid rgba(203, 213, 225, 0.90);
+        --train-page-modal-shadow:
+            0 26px 70px rgba(15, 23, 42, 0.16),
+            0 0 0 1px rgba(255, 255, 255, 0.85),
+            0 0 0 10px rgba(15, 23, 42, 0.04);
+    }
+
+    /* 页面骨架 */
+    body {
+        background:
+            radial-gradient(circle at top left, rgba(28, 70, 48, 0.10), transparent 24%),
+            radial-gradient(circle at top right, rgba(191, 151, 89, 0.16), transparent 22%),
+            linear-gradient(180deg, #f8f3ea 0%, #efe6d8 100%);
+    }
+    .gradio-container {
+        max-width: 1220px !important;
+        margin: 0 auto;
+        padding: 0 8px 36px 8px !important;
+    }
+
+    /* 头图区 */
+    .hero {
+        padding: 24px 8px 18px 8px;
+    }
+    .hero h1 {
+        margin: 0;
+        font-size: 42px;
+        line-height: 0.96;
+        letter-spacing: -0.04em;
+        color: #1d2a1f;
+        font-family: "Baskerville", "Times New Roman", "Songti SC", serif;
+    }
+    .hero p {
+        margin: 10px 0 0 0;
+        max-width: 760px;
+        color: #6a645b;
+        font-size: 15px;
+    }
+
+    /* 训练步骤上方的阶段提示 */
+    .stage-alert-box {
+        margin: 4px 8px 12px 8px;
+    }
+    .stage-alert-box textarea {
+        min-height: 44px !important;
+        border-radius: 999px !important;
+        padding: 10px 16px !important;
+        border: 1px solid rgba(52, 88, 66, 0.14) !important;
+        box-shadow: none !important;
+        background: rgba(236, 244, 239, 0.98) !important;
+        color: #26402e !important;
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        line-height: 1.25 !important;
+        letter-spacing: 0.01em !important;
+        resize: none !important;
+        overflow: hidden !important;
+    }
+
+    /* 训练前依赖与底模 */
+    .dependency-status-row {
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(47, 39, 29, 0.08);
+    }
+    .dependency-status-row:last-of-type {
+        border-bottom: none;
+    }
+    .dependency-status-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #263125;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .dependency-status-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 800;
+        flex: 0 0 20px;
+        border: 1px solid currentColor;
+    }
+    .dependency-status-path {
+        margin-top: 4px;
+        font-size: 12px;
+        color: #7a746b;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .dependency-status-summary {
+        margin-top: 14px;
+        padding-top: 8px;
+        font-size: 14px;
+        font-weight: 700;
+    }
+    .dependency-next-missing {
+        margin-top: 8px;
+        font-size: 13px;
+        color: #6d655c;
+    }
+    .dependency-progress {
+        margin: -2px 0 10px 0;
+        padding: 12px;
+        border-radius: var(--train-page-card-radius);
+        background: var(--train-page-card-bg-soft);
+        border: var(--train-page-card-border);
+    }
+    .dependency-progress-stats {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: stretch;
+    }
+    .dependency-progress-pill {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 14px;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1.1;
+    }
+    .dependency-progress-pill--ok {
+        background: rgba(225, 244, 232, 0.96);
+        color: #1f8f4c;
+        border: 1px solid rgba(31, 143, 76, 0.14);
+    }
+    .dependency-progress-pill--missing {
+        background: rgba(250, 234, 228, 0.96);
+        color: #c0392b;
+        border: 1px solid rgba(192, 57, 43, 0.14);
+    }
+    .dependency-progress-pill__label {
+        opacity: 0.92;
+    }
+    .dependency-progress-pill__value {
+        min-width: 1.6em;
+        text-align: center;
+        font-size: 15px;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+    }
+    .dependency-progress-total {
+        display: inline-flex;
+        align-items: center;
+        font-size: 12px;
+        color: var(--train-page-text-muted);
+        padding: 0 2px;
+    }
+    .dependency-progress-hint {
+        margin-top: 10px;
+        font-size: 13px;
+        color: var(--train-page-text-subtle);
+    }
+    .section-subcopy--tight {
+        margin-bottom: 8px !important;
+    }
+
+    /* 训练语音数据：这组卡片和结果区共用同一套容器表面 */
+    .dataset-overview-box,
+    .dataset-files-box {
+        border: var(--train-page-card-border);
+        border-radius: var(--train-page-card-radius);
+        background: var(--train-page-card-bg);
+        padding: 14px 16px;
+    }
+    .dataset-overview-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+    .dataset-overview-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .dataset-overview-label {
+        font-size: 12px;
+        color: #7a746b;
+    }
+    .dataset-overview-value {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--train-page-text-main);
+    }
+    .dataset-overview-path {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 13px;
+    }
+    .dataset-overview-paths {
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(34, 71, 53, 0.08);
+        color: #6f685e;
+        font-size: 12px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .dataset-overview-note {
+        margin-top: 10px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(255, 246, 232, 0.95);
+        border: 1px solid rgba(217, 119, 6, 0.16);
+        color: #9a5b12;
+        font-size: 12px;
+        line-height: 1.6;
+    }
+    .dataset-files-head {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--train-page-text-main);
+    }
+    .dataset-files-count {
+        margin-top: 4px;
+        font-size: 12px;
+        color: var(--train-page-text-muted);
+    }
+    .dataset-files-list {
+        margin-top: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-height: 320px;
+        overflow: auto;
+    }
+    .dataset-file-item {
+        font-size: 13px;
+        color: #334155;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        padding: 8px 10px;
+        border-radius: 12px;
+        background: rgba(235, 241, 247, 0.82);
+    }
+    .dataset-files-more,
+    .dataset-files-empty {
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--train-page-text-muted);
+    }
+    .dataset-note {
+        margin: 10px 0 12px 0;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(255, 251, 245, 0.88);
+        border: 1px solid rgba(34, 71, 53, 0.08);
+        color: #635c52;
+        font-size: 13px;
+        line-height: 1.6;
+    }
+    .dataset-import-result {
+        margin-top: 12px;
+        border: var(--train-page-card-border);
+        border-radius: var(--train-page-card-radius);
+        background: var(--train-page-card-bg);
+        padding: 14px 16px;
+    }
+    .dataset-import-result__title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--train-page-text-main);
+    }
+    .dataset-import-result__body {
+        margin-top: 10px;
+        font-size: 13px;
+        line-height: 1.7;
+    }
+    .status-ok {
+        color: var(--train-page-ok);
+    }
+    .status-missing {
+        color: var(--train-page-danger);
+    }
+
+    /* 运行提示卡 */
+    .runtime-banner-box {
+        margin: 12px 0 14px 0;
+    }
+    .runtime-banner-box textarea {
+        min-height: 86px !important;
+        border-radius: 18px !important;
+        padding: 14px 16px !important;
+        border: 1px solid rgba(217, 119, 6, 0.24) !important;
+        background: linear-gradient(135deg, rgba(255, 243, 214, 0.98), rgba(255, 229, 178, 0.96)) !important;
+        box-shadow: 0 12px 28px rgba(217, 119, 6, 0.12) !important;
+        color: #213428 !important;
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        line-height: 1.55 !important;
+        box-sizing: border-box !important;
+        resize: none !important;
+        font-variant-numeric: tabular-nums;
+        font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    }
+    /* 通用卡片和按钮 */
+    .section-card {
+        border: 1px solid rgba(67, 57, 44, 0.12);
+        border-radius: var(--train-page-section-radius);
+        padding: 16px !important;
+        background: linear-gradient(180deg, rgba(255, 251, 244, 0.96) 0%, rgba(247, 239, 227, 0.98) 100%);
+        box-shadow: 0 14px 34px rgba(44, 32, 18, 0.06);
+    }
+    .section-card h3 {
+        color: #224735;
+        font-size: 22px !important;
+        margin-bottom: 8px !important;
+    }
+    .gradio-container .primary-action button,
+    .gradio-container .secondary-action button,
+    .gradio-container .success-action button,
+    .gradio-container .info-action button,
+    .gradio-container .danger-action button,
+    .gradio-container .danger-secondary button {
+        min-height: 52px !important;
+        border-radius: 18px !important;
+        font-weight: 700 !important;
+    }
+    .gradio-container .primary-action button {
+        background: linear-gradient(90deg, #234936 0%, #39634d 55%, #ba8c4b 100%) !important;
+        color: #fffaf0 !important;
+        border: none !important;
+        box-shadow: 0 10px 24px rgba(35, 73, 54, 0.18) !important;
+    }
+    .gradio-container .secondary-action button {
+        background: rgba(255, 251, 245, 0.92) !important;
+        color: #224735 !important;
+        border: 1px solid rgba(34, 71, 53, 0.14) !important;
+    }
+    .gradio-container .success-action button {
+        background: linear-gradient(180deg, #dff7e8 0%, #b9efcd 100%) !important;
+        color: #166534 !important;
+        border: 1px solid rgba(22, 101, 52, 0.18) !important;
+        box-shadow: 0 10px 22px rgba(22, 101, 52, 0.10) !important;
+    }
+    .gradio-container .info-action button {
+        background: linear-gradient(180deg, #eef5ff 0%, #dbeafe 100%) !important;
+        color: #1d4ed8 !important;
+        border: 1px solid rgba(29, 78, 216, 0.16) !important;
+        box-shadow: 0 10px 22px rgba(29, 78, 216, 0.08) !important;
+    }
+    .gradio-container .danger-action button {
+        background: linear-gradient(90deg, #171312 0%, #351514 36%, #8b1f1f 100%) !important;
+        color: #fff8f6 !important;
+        border: none !important;
+        box-shadow: 0 12px 28px rgba(54, 21, 20, 0.28) !important;
+    }
+    .gradio-container .danger-secondary button {
+        background: linear-gradient(180deg, #1f1717 0%, #111111 100%) !important;
+        color: #fff5f5 !important;
+        border: 1px solid rgba(127, 29, 29, 0.30) !important;
+        box-shadow:
+            0 10px 22px rgba(17, 17, 17, 0.18),
+            inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+    }
+    .gradio-container .primary-action button:hover,
+    .gradio-container .secondary-action button:hover,
+    .gradio-container .success-action button:hover,
+    .gradio-container .info-action button:hover,
+    .gradio-container .danger-action button:hover,
+    .gradio-container .danger-secondary button:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.03);
+    }
+    #train-refresh-assets button,
+    #train-refresh-datasets button,
+    #train-refresh-overview button,
+    #train-open-tensorboard button,
+    #train-open-infer button,
+    #train-refresh-task button {
+        background: linear-gradient(180deg, #eef5ff 0%, #dbeafe 100%) !important;
+        color: var(--train-page-info) !important;
+        border: 1px solid rgba(29, 78, 216, 0.16) !important;
+        box-shadow: 0 10px 22px rgba(29, 78, 216, 0.08) !important;
+    }
+    #train-refresh-assets button:disabled,
+    #train-refresh-datasets button:disabled,
+    #train-refresh-overview button:disabled,
+    #train-open-tensorboard button:disabled,
+    #train-open-infer button:disabled,
+    #train-refresh-task button:disabled {
+        background: linear-gradient(180deg, #eef5ff 0%, #dbeafe 100%) !important;
+        color: var(--train-page-info) !important;
+        border: 1px solid rgba(29, 78, 216, 0.16) !important;
+        opacity: 0.85 !important;
+    }
+    #train-delete-dataset button,
+    #train-stop-task button {
+        background: linear-gradient(180deg, #1f1717 0%, #111111 100%) !important;
+        color: #fff5f5 !important;
+        border: 1px solid rgba(127, 29, 29, 0.30) !important;
+    }
+    #train-delete-dataset button:disabled,
+    #train-stop-task button:disabled {
+        background: linear-gradient(180deg, #1f1717 0%, #111111 100%) !important;
+        color: #fff5f5 !important;
+        border: 1px solid rgba(127, 29, 29, 0.30) !important;
+        opacity: 0.85 !important;
+    }
+    /* 阶段检查与进度摘要 */
+    .stage-check-row {
+        margin-bottom: 10px;
+    }
+    .stage-check-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #1f2937;
+        font-weight: 600;
+        line-height: 1.45;
+    }
+    .stage-check-detail {
+        margin-left: 18px;
+        color: #6b7280;
+        font-size: 13px;
+        line-height: 1.45;
+    }
+    .stage-dot {
+        font-size: 14px;
+        line-height: 1;
+    }
+    .stage-dot.status-ok,
+    .stage-check-title .status-ok {
+        color: var(--train-page-ok) !important;
+    }
+    .stage-dot.status-warn,
+    .stage-check-title .status-warn {
+        color: var(--train-page-warn) !important;
+    }
+    .stage-dot.status-missing,
+    .stage-check-title .status-missing {
+        color: var(--train-page-danger) !important;
+    }
+    .preflight-group,
+    .stage-progress-box {
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    .preflight-heading {
+        margin: 4px 0 10px 0;
+        color: #5f5a52;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+    .stage-next-step {
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(34, 71, 53, 0.10);
+        color: #224735;
+        font-weight: 600;
+    }
+    .stage-next-step span {
+        color: #5f5a52;
+        font-weight: 500;
+    }
+    /* 弹窗：删除确认 / 运行中阻塞提示 */
+    #delete-confirm-modal,
+    #action-block-modal {
+        position: fixed !important;
+        left: 50% !important;
+        top: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        z-index: 1200 !important;
+        width: var(--train-page-modal-width) !important;
+        max-width: calc(100vw - 36px) !important;
+        background: transparent !important;
+        padding: 0 !important;
+    }
+    #delete-confirm-modal > .wrap,
+    #delete-confirm-modal > div,
+    #delete-confirm-modal .gr-box,
+    #delete-confirm-modal .gr-panel,
+    #delete-confirm-modal .gr-form,
+    #action-block-modal > .wrap,
+    #action-block-modal > div,
+    #action-block-modal .gr-box,
+    #action-block-modal .gr-panel,
+    #action-block-modal .gr-form {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    #delete-confirm-modal > .wrap,
+    #delete-confirm-modal > div,
+    #action-block-modal > .wrap,
+    #action-block-modal > div {
+        height: auto !important;
+        display: block !important;
+    }
+    #delete-confirm-card,
+    #action-block-card {
+        width: 100% !important;
+        position: relative !important;
+        border-radius: 22px !important;
+        background: var(--train-page-modal-surface) !important;
+        border: var(--train-page-modal-border) !important;
+        box-shadow: var(--train-page-modal-shadow) !important;
+        overflow: hidden !important;
+        padding: 0 !important;
+    }
+    #delete-confirm-card::before {
+        content: "";
+        display: block;
+        height: 4px;
+        background: linear-gradient(90deg, #111111 0%, #7f1d1d 40%, #ef4444 100%);
+    }
+    #action-block-card::before {
+        content: "";
+        display: block;
+        height: 4px;
+        background: linear-gradient(90deg, #1d4ed8 0%, #0ea5e9 45%, #22c55e 100%);
+    }
+    #delete-confirm-card h3,
+    #action-block-card h3 {
+        margin: 0 !important;
+        color: #111827 !important;
+        font-size: 27px !important;
+        line-height: 1 !important;
+        letter-spacing: -0.03em !important;
+    }
+    #delete-confirm-card .delete-modal-copy,
+    #action-block-card .delete-modal-copy {
+        margin: 10px 0 0 0;
+        color: #6b7280;
+        font-size: 14px;
+        line-height: 1.45;
+    }
+    #delete-confirm-card .delete-modal-section,
+    #action-block-card .delete-modal-section {
+        padding: 18px 18px 8px 18px;
+    }
+    #delete-confirm-card .delete-modal-body,
+    #action-block-card .delete-modal-body {
+        padding: 0 18px 18px 18px;
+    }
+    #delete-confirm-card .prose,
+    #action-block-card .prose {
+        margin: 0 !important;
+        max-width: none !important;
+        padding: 14px;
+        border-radius: 14px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        color: #1f2937;
+        font-size: 14px;
+        line-height: 1.55;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+    }
+    #delete-confirm-card textarea,
+    #action-block-card textarea {
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 14px !important;
+        color: #1f2937 !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.8) !important;
+        padding: 14px !important;
+        line-height: 1.6 !important;
+        resize: none !important;
+    }
+    #delete-confirm-card textarea {
+        min-height: 112px !important;
+    }
+    #action-block-card textarea {
+        min-height: 92px !important;
+    }
+    #delete-confirm-actions {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px !important;
+        padding: 0 18px 18px 18px !important;
+    }
+    #action-block-actions {
+        display: grid !important;
+        grid-template-columns: 1fr;
+        gap: 10px !important;
+        padding: 0 18px 18px 18px !important;
+    }
+    #delete-confirm-actions > div,
+    #delete-confirm-actions .wrap {
+        min-width: 0 !important;
+    }
+    #action-block-actions > div,
+    #action-block-actions .wrap {
+        min-width: 0 !important;
+    }
+    #delete-cancel-action button,
+    #delete-confirm-action button,
+    #action-block-ok button {
+        min-height: 46px !important;
+        border-radius: 14px !important;
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease !important;
+    }
+    #action-block-ok button {
+        background: linear-gradient(180deg, #eef5ff 0%, #dbeafe 100%) !important;
+        color: var(--train-page-info) !important;
+        border: 1px solid rgba(29, 78, 216, 0.16) !important;
+        box-shadow: 0 10px 22px rgba(29, 78, 216, 0.08) !important;
+    }
+    #delete-cancel-action button {
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+        color: #0f172a !important;
+        border: 1px solid #dbe2ea !important;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06) !important;
+    }
+    #delete-confirm-action button {
+        background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%) !important;
+        color: #fffaf9 !important;
+        border: none !important;
+        box-shadow: 0 10px 24px rgba(220, 38, 38, 0.20) !important;
+    }
+    #delete-cancel-action button:hover,
+    #delete-confirm-action button:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.02);
+    }
+    #action-block-ok button:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.02);
+    }
+    /* 上传区与页面收尾 */
+    #speaker-folder-upload .file-preview,
+    #speaker-folder-upload .file-preview-holder,
+    #speaker-folder-upload .file-preview-status,
+    #speaker-folder-upload .wrap.svelte-1ipelgc {
+        display: none !important;
+    }
+    footer {
+        display: none !important;
+    }
+    

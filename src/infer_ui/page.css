@@ -1,0 +1,297 @@
+    :root {
+        --bg-paper: #f7f1e7;
+        --bg-wash: #efe6d7;
+        --panel-bg: linear-gradient(180deg, rgba(255, 251, 245, 0.96) 0%, rgba(248, 241, 229, 0.98) 100%);
+        --panel-border: rgba(76, 62, 38, 0.14);
+        --hero-ink: #1d2a1f;
+        --muted-ink: #6d6559;
+        --accent-bg: #efe6d7;
+        --accent-deep: #224735;
+        --accent-gold: #ba8c4b;
+        --accent-soft: #f5efe3;
+        --line-soft: rgba(34, 71, 53, 0.10);
+    }
+    body {
+        background:
+            radial-gradient(circle at top left, rgba(34, 71, 53, 0.12), transparent 24%),
+            radial-gradient(circle at top right, rgba(186, 140, 75, 0.18), transparent 22%),
+            linear-gradient(180deg, var(--bg-paper) 0%, var(--bg-wash) 100%);
+    }
+    .gradio-container {
+        max-width: 1180px !important;
+        margin: 0 auto;
+        padding: 0 8px 32px 8px !important;
+    }
+    .hero {
+        padding: 26px 8px 12px 8px;
+        margin-bottom: 10px;
+    }
+    .hero h1 {
+        margin: 0;
+        font-size: 46px;
+        line-height: 0.96;
+        letter-spacing: -0.045em;
+        color: var(--hero-ink);
+        font-family: "Baskerville", "Times New Roman", "Songti SC", serif;
+    }
+    .hero p {
+        margin: 12px 0 0 0;
+        max-width: 720px;
+        color: var(--muted-ink);
+        font-size: 15px;
+    }
+    .step-card {
+        border: 1px solid var(--panel-border);
+        border-radius: 24px;
+        padding: 16px !important;
+        background: var(--panel-bg);
+        box-shadow:
+            0 14px 34px rgba(44, 32, 18, 0.06),
+            inset 0 1px 0 rgba(255, 255, 255, 0.65);
+        position: relative;
+        overflow: hidden;
+    }
+    .step-card h3 {
+        margin-bottom: 8px !important;
+        font-size: 22px !important;
+        color: var(--accent-deep);
+        letter-spacing: -0.02em;
+    }
+    .step-card::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 3px;
+        background: linear-gradient(90deg, rgba(34, 71, 53, 0.95), rgba(186, 140, 75, 0.72));
+    }
+    .card-model::after,
+    .card-status::after,
+    .card-params::after,
+    .card-output::after {
+        position: absolute;
+        top: 16px;
+        right: 18px;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(34, 71, 53, 0.44);
+    }
+    .card-model::after {
+        content: "Studio Input";
+    }
+    .card-status::after {
+        content: "Load Check";
+    }
+    .card-params::after {
+        content: "Mastering";
+    }
+    .card-output::after {
+        content: "Render";
+    }
+    .subtle-note {
+        color: var(--muted-ink);
+        font-size: 14px;
+        margin-top: -4px;
+        margin-bottom: 10px;
+    }
+    .step-note {
+        border: 1px solid rgba(34, 71, 53, 0.12);
+        background: linear-gradient(90deg, rgba(255, 251, 245, 0.82), rgba(245, 238, 226, 0.92));
+        border-radius: 20px;
+        padding: 16px 18px;
+        margin-bottom: 18px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+    }
+    .step-note strong {
+        color: var(--accent-deep);
+    }
+    .step-note code {
+        background: rgba(34, 71, 53, 0.08);
+        padding: 2px 6px;
+        border-radius: 6px;
+    }
+    .gradio-container .primary-action button,
+    .gradio-container .secondary-action button,
+    .gradio-container .success-action button,
+    .gradio-container .info-action button,
+    .gradio-container .danger-secondary button {
+        min-height: 54px !important;
+        font-weight: 700 !important;
+        border-radius: 18px !important;
+        transition: transform 120ms ease, box-shadow 120ms ease !important;
+    }
+    .gradio-container .primary-action button {
+        background: linear-gradient(90deg, #234936 0%, #39634d 55%, #ba8c4b 100%) !important;
+        color: #fffaf0 !important;
+        border: none !important;
+        box-shadow: 0 10px 24px rgba(35, 73, 54, 0.18) !important;
+    }
+    .gradio-container .secondary-action button {
+        background: rgba(255, 251, 245, 0.92) !important;
+        color: #224735 !important;
+        border: 1px solid rgba(34, 71, 53, 0.14) !important;
+    }
+    .gradio-container .success-action button {
+        background: linear-gradient(180deg, #dff7e8 0%, #b9efcd 100%) !important;
+        color: #166534 !important;
+        border: 1px solid rgba(22, 101, 52, 0.18) !important;
+        box-shadow: 0 10px 22px rgba(22, 101, 52, 0.10) !important;
+    }
+    .gradio-container .info-action button {
+        background: linear-gradient(180deg, #eef5ff 0%, #dbeafe 100%) !important;
+        color: #1d4ed8 !important;
+        border: 1px solid rgba(29, 78, 216, 0.16) !important;
+        box-shadow: 0 10px 22px rgba(29, 78, 216, 0.08) !important;
+    }
+    .gradio-container .danger-secondary button {
+        background: linear-gradient(180deg, #1f1717 0%, #111111 100%) !important;
+        color: #fff5f5 !important;
+        border: 1px solid rgba(127, 29, 29, 0.30) !important;
+        box-shadow:
+            0 10px 22px rgba(17, 17, 17, 0.18),
+            inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+    }
+    .gradio-container .primary-action button:hover,
+    .gradio-container .secondary-action button:hover,
+    .gradio-container .success-action button:hover,
+    .gradio-container .info-action button:hover,
+    .gradio-container .danger-secondary button:hover {
+        transform: translateY(-1px);
+    }
+    .gr-tab-nav {
+        gap: 8px !important;
+        margin-bottom: 12px !important;
+    }
+    .gr-tab-nav button {
+        border-radius: 999px !important;
+        border: 1px solid rgba(34, 71, 53, 0.10) !important;
+        background: rgba(255, 252, 246, 0.78) !important;
+        color: #455449 !important;
+        min-height: 40px !important;
+        padding: 0 16px !important;
+    }
+    .gr-tab-nav button.selected {
+        background: linear-gradient(90deg, #224735, #3b6650) !important;
+        color: #fffaf0 !important;
+        border-color: transparent !important;
+    }
+    .gr-box,
+    .gr-panel {
+        border-radius: 18px !important;
+        border-color: var(--line-soft) !important;
+    }
+    .gr-input,
+    .gr-text-input,
+    .gr-dropdown,
+    .gr-box input,
+    .gr-box textarea {
+        border-radius: 16px !important;
+    }
+    .gr-accordion {
+        border-radius: 18px !important;
+        overflow: hidden;
+    }
+    .gr-accordion .label-wrap {
+        background: rgba(255, 252, 246, 0.76) !important;
+    }
+    .gr-radio {
+        background: rgba(255, 251, 245, 0.76);
+        border: 1px solid rgba(34, 71, 53, 0.08);
+        border-radius: 18px;
+        padding: 8px;
+    }
+    .compact-status textarea,
+    .compact-status input {
+        background: rgba(255, 253, 248, 0.82) !important;
+        border: 1px solid rgba(34, 71, 53, 0.10) !important;
+    }
+    .readiness-row {
+        margin-bottom: 10px;
+    }
+    .readiness-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #1f2937;
+        font-weight: 600;
+        line-height: 1.45;
+    }
+    .stage-progress-box {
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    .stage-dot {
+        font-size: 14px;
+        line-height: 1;
+    }
+    .stage-dot.status-ok,
+    .readiness-title .status-ok,
+    .dependency-status-summary.status-ok {
+        color: #1f8f4c !important;
+    }
+    .stage-dot.status-warn,
+    .readiness-title .status-warn,
+    .dependency-status-summary.status-warn {
+        color: #d97706 !important;
+    }
+    .stage-dot.status-missing,
+    .readiness-title .status-missing,
+    .dependency-status-summary.status-missing {
+        color: #c0392b !important;
+    }
+    .dependency-status-summary {
+        margin-top: 14px;
+        padding-top: 8px;
+        border-top: 1px solid rgba(34, 71, 53, 0.10);
+        font-size: 14px;
+        font-weight: 700;
+    }
+    #infer-local-refresh button {
+        background: linear-gradient(180deg, #eef5ff 0%, #dbeafe 100%) !important;
+        color: #1d4ed8 !important;
+        border: 1px solid rgba(29, 78, 216, 0.16) !important;
+        box-shadow: 0 10px 22px rgba(29, 78, 216, 0.08) !important;
+    }
+    #infer-unload button {
+        background: linear-gradient(180deg, #1f1717 0%, #111111 100%) !important;
+        color: #fff5f5 !important;
+        border: 1px solid rgba(127, 29, 29, 0.30) !important;
+        box-shadow: 0 10px 22px rgba(17, 17, 17, 0.18) !important;
+    }
+    #infer-preset button {
+        background: linear-gradient(180deg, #dff7e8 0%, #b9efcd 100%) !important;
+        color: #166534 !important;
+        border: 1px solid rgba(22, 101, 52, 0.18) !important;
+        box-shadow: 0 10px 22px rgba(22, 101, 52, 0.10) !important;
+    }
+    #infer-summary button {
+        background: linear-gradient(180deg, #eef5ff 0%, #dbeafe 100%) !important;
+        color: #1d4ed8 !important;
+        border: 1px solid rgba(29, 78, 216, 0.16) !important;
+        box-shadow: 0 10px 22px rgba(29, 78, 216, 0.08) !important;
+    }
+    .compact-status textarea {
+        min-height: 180px !important;
+        font-size: 14px !important;
+        line-height: 1.55 !important;
+    }
+    .readiness-box textarea {
+        min-height: 140px !important;
+        font-size: 14px !important;
+        line-height: 1.6 !important;
+    }
+    .result-audio {
+        background: radial-gradient(circle at top, rgba(255, 251, 245, 0.9), rgba(241, 234, 222, 0.92));
+        border-radius: 18px;
+        border: 1px solid rgba(34, 71, 53, 0.10);
+        padding: 4px;
+    }
+    footer {
+        display: none !important;
+    }
+    @media (max-width: 900px) {
+        .hero h1 {
+            font-size: 34px;
+        }
+    }
+    

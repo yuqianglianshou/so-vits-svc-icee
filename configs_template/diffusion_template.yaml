@@ -24,12 +24,12 @@ model:
 device: cuda
 vocoder:
   type: 'nsf-hifigan'
-  ckpt: 'pretrain/nsf_hifigan/model'
+  ckpt: 'model_assets/dependencies/vocoders/nsf_hifigan/model'
 infer:
   speedup: 10
   method: 'dpm-solver++' # 'pndm' or 'dpm-solver' or 'ddim' or 'unipc' or 'dpm-solver++'
 env:
-  expdir: logs/44k/diffusion
+  expdir: model_assets/workspaces/44k/diffusion
   gpu_id: 0
 train:
   num_workers: 4 # If your cpu and gpu are both very strong, set to 0 may be faster!

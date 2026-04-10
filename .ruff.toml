@@ -1,3 +1,16 @@
+# 项目当前以 Python 3.11 作为主线环境。
+target-version = "py311"
+
+# 只检查源码和脚本，跳过虚拟环境、数据资产和 notebook。
+exclude = [
+  ".venv311",
+  "model_assets",
+  "training_data",
+  "inference_data",
+  "docs/notebooks",
+]
+
+# 先保留基础静态检查：风格、明显错误、导入顺序。
 select = ["E", "F", "I"]
 
 # Never enforce `E501` (line length violations).
