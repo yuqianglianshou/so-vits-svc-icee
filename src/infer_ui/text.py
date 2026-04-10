@@ -6,41 +6,6 @@ from __future__ import annotations
 """
 
 
-def render_readiness_html(model_file, config_file, diff_model_file, diff_config_file, cluster_file, local_model_enabled, local_model_selection, local_model_checkpoint_selection):
-    """渲染模型文件准备情况摘要。"""
-    basic_ready = (
-        bool(local_model_selection) and bool(local_model_checkpoint_selection)
-        if local_model_enabled else
-        model_file is not None and config_file is not None
-    )
-    diff_ready = diff_model_file is not None and diff_config_file is not None
-    cluster_ready = cluster_file is not None
-
-    items = [
-        ("必需：主模型 + 配置", "已就绪" if basic_ready else "缺失", "ok" if basic_ready else "missing"),
-        ("推荐：音质增强", "已就绪" if diff_ready else "未加载", "ok" if diff_ready else "warn"),
-        ("推荐：音色增强", "已就绪" if cluster_ready else "未加载", "ok" if cluster_ready else "warn"),
-    ]
-    if basic_ready and diff_ready and cluster_ready:
-        summary = ("现在可以直接按最佳质量链路开始转换。", "ok")
-    elif basic_ready:
-        summary = ("现在可以开始转换；如果想要更好的音质和相似度，再补充推荐文件。", "warn")
-    else:
-        summary = ("先补齐主模型和配置，再进行下一步。", "missing")
-
-    rows = []
-    for title, text, tone in items:
-        color = "#1f8f4c" if tone == "ok" else "#d97706" if tone == "warn" else "#c0392b"
-        rows.append(
-            '<div class="readiness-row">'
-            f'<div class="readiness-title"><span class="stage-dot" style="color:{color};">●</span>{title}：<span style="color:{color};">{text}</span></div>'
-            '</div>'
-        )
-    summary_color = "#1f8f4c" if summary[1] == "ok" else "#d97706" if summary[1] == "warn" else "#c0392b"
-    rows.append(f'<div class="dependency-status-summary" style="color:{summary_color};">{summary[0]}</div>')
-    return '<div class="stage-progress-box">' + "".join(rows) + '</div>'
-
-
 
 def render_load_result_html(summary_text):
     """把模型加载结果整理成卡片 HTML。"""

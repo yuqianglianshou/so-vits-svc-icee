@@ -267,6 +267,17 @@ def render_pretrain_progress():
     return render_pretrain_progress_html(ready, total, next_missing_label)
 
 
+def is_pretrain_section_open() -> bool:
+    return not all(
+        is_pretrain_asset_ready(asset, get_rmvpe_path(), is_rmvpe_asset_valid)
+        for asset in PRETRAIN_ASSETS.values()
+    )
+
+
+def refresh_pretrain_section_open():
+    return gr.update(open=is_pretrain_section_open())
+
+
 def pretrain_selector_update(selected_key: Optional[str] = None):
     ordered_keys = ordered_pretrain_asset_keys(PRETRAIN_ASSETS, get_rmvpe_path(), is_rmvpe_asset_valid)
     fallback = ordered_keys[0] if ordered_keys else "contentvec_hf"
@@ -1087,6 +1098,16 @@ def launch_infer_ui():
     return launch_infer_ui_action(root=ROOT, infer_ui_state=INFER_UI_STATE, ui_notice=UI_NOTICE)
 
 
+def launch_tensorboard_feedback():
+    message = launch_tensorboard()
+    return message, message
+
+
+def launch_infer_ui_feedback():
+    message = launch_infer_ui()
+    return message, message
+
+
 with gr.Blocks(
     analytics_enabled=False,
     theme=gr.themes.Base(
@@ -1124,32 +1145,33 @@ with gr.Blocks(
     with gr.Row():
         with gr.Column(scale=12, elem_classes=["section-card"]):
             gr.Markdown("### 训练前依赖与底模")
-            with gr.Row():
-                with gr.Column(scale=6):
-                    pretrain_status = gr.HTML(
-                        value=render_pretrain_status(),
-                    )
-                with gr.Column(scale=6):
-                    pretrain_progress = gr.HTML(render_pretrain_progress())
-                    pretrain_asset_selector = gr.Dropdown(
-                        label="选择依赖",
-                        choices=pretrain_asset_choices(PRETRAIN_ASSETS, get_rmvpe_path(), is_rmvpe_asset_valid),
-                        value=first_missing_pretrain_asset(PRETRAIN_ASSETS, get_rmvpe_path(), is_rmvpe_asset_valid) or "contentvec_hf",
-                    )
-                    pretrain_asset_guide = gr.HTML(render_pretrain_asset_guide("contentvec_hf"))
-                    pretrain_asset_file = gr.File(
-                        label="选择本地文件",
-                        file_count="multiple",
-                        type="filepath",
-                        file_types=PRETRAIN_ASSETS["contentvec_hf"].get("file_types"),
-                    )
-                    with gr.Row():
-                        pretrain_asset_download_btn = gr.Button(
-                            "自动获取当前依赖",
-                            elem_classes=["info-action"],
-                            elem_id="train-download-asset",
+            with gr.Accordion("查看与处理训练前依赖", open=is_pretrain_section_open()) as pretrain_section:
+                with gr.Row():
+                    with gr.Column(scale=6):
+                        pretrain_status = gr.HTML(
+                            value=render_pretrain_status(),
                         )
-                        pretrain_asset_refresh_btn = gr.Button("刷新依赖状态", elem_classes=["info-action"], elem_id="train-refresh-assets")
+                    with gr.Column(scale=6):
+                        pretrain_progress = gr.HTML(render_pretrain_progress())
+                        pretrain_asset_selector = gr.Dropdown(
+                            label="选择依赖",
+                            choices=pretrain_asset_choices(PRETRAIN_ASSETS, get_rmvpe_path(), is_rmvpe_asset_valid),
+                            value=first_missing_pretrain_asset(PRETRAIN_ASSETS, get_rmvpe_path(), is_rmvpe_asset_valid) or "contentvec_hf",
+                        )
+                        pretrain_asset_guide = gr.HTML(render_pretrain_asset_guide("contentvec_hf"))
+                        pretrain_asset_file = gr.File(
+                            label="选择本地文件",
+                            file_count="multiple",
+                            type="filepath",
+                            file_types=PRETRAIN_ASSETS["contentvec_hf"].get("file_types"),
+                        )
+                        with gr.Row():
+                            pretrain_asset_download_btn = gr.Button(
+                                "自动获取当前依赖",
+                                elem_classes=["info-action"],
+                                elem_id="train-download-asset",
+                            )
+                            pretrain_asset_refresh_btn = gr.Button("刷新依赖状态", elem_classes=["info-action"], elem_id="train-refresh-assets")
 
     with gr.Row():
         with gr.Column(scale=5, elem_classes=["section-card"]):
@@ -1403,6 +1425,11 @@ with gr.Blocks(
         [pretrain_progress],
         show_api=False,
     ).then(
+        refresh_pretrain_section_open,
+        [],
+        [pretrain_section],
+        show_api=False,
+    ).then(
         refresh_dashboard, [train_model_name, dataset_source_dir, dataset_train_dir], refresh_outputs, show_api=False
     )
     pretrain_asset_refresh_btn.click(
@@ -1424,6 +1451,11 @@ with gr.Blocks(
         [pretrain_progress],
         show_api=False,
     ).then(
+        refresh_pretrain_section_open,
+        [],
+        [pretrain_section],
+        show_api=False,
+    ).then(
         refresh_dashboard, [train_model_name, dataset_source_dir, dataset_train_dir], refresh_outputs, show_api=False
     )
     pretrain_asset_download_btn.click(
@@ -1440,6 +1472,11 @@ with gr.Blocks(
         render_pretrain_progress,
         [],
         [pretrain_progress],
+        show_api=False,
+    ).then(
+        refresh_pretrain_section_open,
+        [],
+        [pretrain_section],
         show_api=False,
     ).then(
         refresh_dashboard, [train_model_name, dataset_source_dir, dataset_train_dir], refresh_outputs, show_api=False
@@ -1526,8 +1563,8 @@ with gr.Blocks(
     stop_btn.click(stop_task, [], [task_message, task_status, task_log], show_api=False).then(
         refresh_dashboard, [train_model_name, dataset_source_dir, dataset_train_dir], refresh_outputs, show_api=False
     )
-    tensorboard_btn.click(launch_tensorboard, [], [task_message], show_api=False)
-    open_infer_btn.click(launch_infer_ui, [], [task_message], show_api=False)
+    tensorboard_btn.click(launch_tensorboard_feedback, [], [task_message, runtime_banner], show_api=False)
+    open_infer_btn.click(launch_infer_ui_feedback, [], [task_message, runtime_banner], show_api=False)
     app.load(auto_refresh_dashboard, [train_model_name, dataset_source_dir, dataset_train_dir], auto_refresh_outputs, show_api=False)
 
     ensure_localhost_bypass_proxy()

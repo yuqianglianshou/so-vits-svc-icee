@@ -185,13 +185,9 @@ def collect_stage_state(model_name: str = "44k", raw_dir: str = "default_dataset
             next_step = f"执行第 4 步：启动主模型训练（{model_name}）。"
         button_state["train"] = {"value": "4. 启动主模型训练", "interactive": True}
 
-    if not single_speaker_ready:
+    if not feature_ready or not single_speaker_ready:
         stage_lines.append(compact_stage_line("5. 扩散训练", "等待上一步", "等待数据目录整理"))
-        stage_items.append(("5. 扩散训练", "等待上一步", "等待数据目录整理"))
-        button_state["train_diff"] = {"value": "5. 启动扩散训练（等待前置）", "interactive": False}
-    elif main_ckpt_count == 0:
-        stage_lines.append(compact_stage_line("5. 扩散训练", "等待上一步", "等待主模型"))
-        stage_items.append(("5. 扩散训练", "等待上一步", "等待主模型"))
+        stage_items.append(("5. 扩散训练", "等待上一步", "等待特征完成"))
         button_state["train_diff"] = {"value": "5. 启动扩散训练（等待前置）", "interactive": False}
     elif diff_ckpt_count > 0:
         stage_lines.append(compact_stage_line("5. 扩散训练", "已开始或已完成", f"已有 {diff_ckpt_count} 个 model_*.pt"))
@@ -206,17 +202,14 @@ def collect_stage_state(model_name: str = "44k", raw_dir: str = "default_dataset
             next_step = "执行第 5 步：启动扩散训练。"
         button_state["train_diff"] = {"value": "5. 启动扩散训练", "interactive": True}
 
-    if not single_speaker_ready:
+    if not feature_ready or not single_speaker_ready:
         stage_lines.append(compact_stage_line("6. 训练音色增强索引", "等待上一步", "等待数据目录整理"))
-        stage_items.append(("6. 训练音色增强索引", "等待上一步", "等待数据目录整理"))
-        button_state["train_index"] = {"value": "6. 训练音色增强索引（等待前置）", "interactive": False}
-    elif main_ckpt_count == 0:
-        stage_lines.append(compact_stage_line("6. 训练音色增强索引", "等待上一步", "等待主模型"))
-        stage_items.append(("6. 训练音色增强索引", "等待上一步", "等待主模型"))
+        stage_items.append(("6. 训练音色增强索引", "等待上一步", "等待特征完成"))
         button_state["train_index"] = {"value": "6. 训练音色增强索引（等待前置）", "interactive": False}
     elif index_file.exists():
-        stage_lines.append(compact_stage_line("6. 训练音色增强索引", "已完成", "索引文件已生成"))
-        stage_items.append(("6. 训练音色增强索引", "已完成", "索引文件已生成"))
+        index_detail = f"索引文件已生成：{index_file.relative_to(ROOT).as_posix()}"
+        stage_lines.append(compact_stage_line("6. 训练音色增强索引", "已完成", index_detail))
+        stage_items.append(("6. 训练音色增强索引", "已完成", index_detail))
         if next_step is None:
             next_step = "训练链路已基本齐备，可以转到推理界面做听感验收。"
         button_state["train_index"] = {"value": "6. 训练音色增强索引（已完成）", "interactive": True}

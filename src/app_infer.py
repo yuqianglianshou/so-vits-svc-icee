@@ -1,6 +1,8 @@
 import logging
 import os
 import socket
+import subprocess
+import sys
 import traceback
 import webbrowser
 from pathlib import Path
@@ -12,15 +14,22 @@ import torch
 from src.gradio_api_info_fallback import apply_gradio_4_api_info_patch
 from src.inference.infer_tool import Svc
 from src.infer_ui.local_models import (
-    LOCAL_MODEL_ROOT,
+    IMPORTED_MODEL_ROOT,
+    WORKSPACE_MODEL_ROOT,
+    detect_local_model_extras,
+    imported_model_refresh_fn,
     list_local_model_checkpoints,
     load_last_selected_infer_model,
-    local_model_checkpoint_refresh_fn,
-    local_model_refresh_fn,
-    persist_local_model_selection,
+    model_checkpoint_refresh_fn,
+    model_extra_refresh_fn,
+    model_option_refresh_fn,
+    persist_selected_model,
     save_last_selected_infer_model,
-    scan_local_models,
+    scan_imported_models,
+    scan_workspace_models,
+    workspace_model_refresh_fn,
 )
+from src.infer_ui.bundle import BUNDLE_VERSION, export_local_model_bundle, inspect_infer_bundle_extras
 from src.infer_ui.convert import quality_convert
 from src.infer_ui.files import resolve_model_inputs
 from src.infer_ui.runtime import (
@@ -31,7 +40,6 @@ from src.infer_ui.runtime import (
 from src.infer_ui.text import (
     render_convert_result_html,
     render_load_result_html,
-    render_readiness_html,
 )
 from src.quality_presets import BEST_QUALITY_PRESET, QUALITY_MODES
 
@@ -60,6 +68,12 @@ def find_available_port(default_port: int, max_tries: int = 20):
                 return port
             except OSError:
                 continue
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("127.0.0.1", 0))
+        fallback_port = sock.getsockname()[1]
+        if fallback_port:
+            return fallback_port
     raise OSError(f"无法在 {default_port}-{default_port + max_tries - 1} 范围内找到可用端口。")
 
 logging.getLogger('numba').setLevel(logging.WARNING)
@@ -103,7 +117,7 @@ def load_model_from_paths(model_path, config_path, cluster_model_path, device, e
             traceback.print_exc()
         raise gr.Error(e)
 
-def modelAnalysis(model_path,config_path,cluster_model_path,device,enhance,diff_model_path,diff_config_path,only_diffusion,local_model_enabled,local_model_selection,local_model_checkpoint_selection):
+def modelAnalysis(model_path, config_path, cluster_model_path, device, enhance, diff_model_path, diff_config_path, only_diffusion, local_model_enabled, model_source, workspace_model_selection, workspace_model_checkpoint_selection, imported_model_selection, imported_model_checkpoint_selection, enable_diffusion, enable_cluster):
     """统一处理上传模式和本地模式下的模型加载入口。"""
     try:
         model_path, config_path, cluster_model_path, diff_model_path, diff_config_path = resolve_model_inputs(
@@ -113,10 +127,15 @@ def modelAnalysis(model_path,config_path,cluster_model_path,device,enhance,diff_
             diff_model_path,
             diff_config_path,
             local_model_enabled,
-            local_model_selection,
-            local_model_checkpoint_selection,
+            model_source,
+            workspace_model_selection,
+            workspace_model_checkpoint_selection,
+            imported_model_selection,
+            imported_model_checkpoint_selection,
+            enable_diffusion=enable_diffusion,
+            enable_cluster=enable_cluster,
         )
-        save_last_selected_infer_model(str(Path(model_path).parent))
+        save_last_selected_infer_model(model_source or "imported", str(Path(model_path).parent))
         return load_model_from_paths(
             model_path,
             config_path,
@@ -191,6 +210,68 @@ def preview_input_audio(audio_path):
     return audio_path or None
 
 
+def export_local_model_bundle_action(model_selection, model_checkpoint_selection):
+    try:
+        bundle_path, bundle_meta = export_local_model_bundle(model_selection, model_checkpoint_selection)
+        extras = []
+        if bundle_meta.get("has_diffusion"):
+            extras.append("扩散")
+        if bundle_meta.get("has_index"):
+            extras.append("索引")
+        if bundle_meta.get("has_cover"):
+            extras.append("封面")
+        if bundle_meta.get("has_description"):
+            extras.append("说明")
+        extras_text = f"；已自动包含：{', '.join(extras)}" if extras else "；当前目录未检测到可打包的额外资产"
+        return (
+            f'<div class="subtle-note">已导出当前模型包{extras_text}</div>',
+            bundle_path.as_posix(),
+            gr.update(interactive=True),
+        )
+    except Exception as exc:
+        if debug:
+            traceback.print_exc()
+        raise gr.Error(exc)
+
+
+def open_exported_file_location(exported_path):
+    if not exported_path:
+        raise gr.Error("当前还没有可打开位置的导出文件。")
+
+    target = Path(exported_path).expanduser().resolve()
+    if not target.exists():
+        raise gr.Error(f"导出文件不存在：{target.as_posix()}")
+
+    try:
+        if sys.platform == "darwin":
+            subprocess.Popen(["/usr/bin/open", "-R", str(target)], start_new_session=True)
+        elif os.name == "nt":
+            subprocess.Popen(["explorer", "/select,", str(target)])
+        else:
+            subprocess.Popen(["/usr/bin/xdg-open", str(target.parent)], start_new_session=True)
+        return gr.update()
+    except Exception as exc:
+        if debug:
+            traceback.print_exc()
+        raise gr.Error(f"无法打开文件位置：{exc}")
+
+
+def build_extra_option_updates(*, has_diffusion: bool, has_cluster: bool):
+    return (
+        gr.update(value=has_diffusion, interactive=has_diffusion),
+        gr.update(value=has_cluster, interactive=has_cluster),
+    )
+
+
+def uploaded_bundle_option_refresh_fn(model_path):
+    bundle_path = getattr(model_path, "name", model_path) if model_path is not None else ""
+    extras = inspect_infer_bundle_extras(bundle_path)
+    return build_extra_option_updates(
+        has_diffusion=bool(extras.get("has_diffusion")),
+        has_cluster=bool(extras.get("has_index")),
+    )
+
+
 with gr.Blocks(
     analytics_enabled=False,
     theme=gr.themes.Base(
@@ -201,16 +282,37 @@ with gr.Blocks(
     ),
     css=INFER_PAGE_CSS,
 ) as app:
-    initial_local_model_choices = scan_local_models()
-    remembered_local_model = load_last_selected_infer_model()
-    initial_local_model_selection = (
-        remembered_local_model
-        if remembered_local_model in initial_local_model_choices
-        else (initial_local_model_choices[0] if initial_local_model_choices else None)
+    initial_workspace_choices = scan_workspace_models()
+    initial_imported_choices = scan_imported_models()
+    remembered_source, remembered_model_dir = load_last_selected_infer_model()
+    if initial_workspace_choices:
+        initial_model_source = "workspace"
+    elif initial_imported_choices:
+        initial_model_source = "imported"
+    else:
+        initial_model_source = "workspace"
+
+    initial_workspace_selection = (
+        remembered_model_dir
+        if initial_model_source == "workspace" and remembered_model_dir in initial_workspace_choices
+        else (initial_workspace_choices[0] if initial_workspace_choices else None)
     )
-    initial_local_model_checkpoints = list_local_model_checkpoints(initial_local_model_selection) if initial_local_model_selection else []
-    initial_local_model_checkpoint_selection = initial_local_model_checkpoints[-1] if initial_local_model_checkpoints else None
-    initial_local_model_enabled = bool(initial_local_model_selection)
+    initial_imported_selection = (
+        remembered_model_dir
+        if initial_model_source == "imported" and remembered_model_dir in initial_imported_choices
+        else (initial_imported_choices[0] if initial_imported_choices else None)
+    )
+    initial_workspace_checkpoints = list_local_model_checkpoints(initial_workspace_selection) if initial_workspace_selection else []
+    initial_imported_checkpoints = list_local_model_checkpoints(initial_imported_selection) if initial_imported_selection else []
+    initial_workspace_checkpoint_selection = initial_workspace_checkpoints[-1] if initial_workspace_checkpoints else None
+    initial_imported_checkpoint_selection = initial_imported_checkpoints[-1] if initial_imported_checkpoints else None
+    initial_local_model_enabled = bool(initial_workspace_selection or initial_imported_selection)
+    initial_selected_model_dir = initial_workspace_selection if initial_model_source == "workspace" else initial_imported_selection
+    initial_diff_model_path, initial_diff_config_path, initial_cluster_model_path = detect_local_model_extras(initial_selected_model_dir)
+    initial_workspace_diff_model_path, initial_workspace_diff_config_path, initial_workspace_cluster_model_path = detect_local_model_extras(initial_workspace_selection)
+    initial_imported_diff_model_path, initial_imported_diff_config_path, initial_imported_cluster_model_path = detect_local_model_extras(initial_imported_selection)
+    initial_has_diffusion = bool(initial_diff_model_path and initial_diff_config_path)
+    initial_has_cluster = bool(initial_cluster_model_path)
 
     gr.HTML("""
         <div class="hero">
@@ -219,65 +321,76 @@ with gr.Blocks(
     """)
 
     local_model_enabled = gr.Checkbox(value=initial_local_model_enabled, visible=False)
+    model_source = gr.State(value=initial_model_source)
     enhance = gr.Checkbox(value=False, visible=False)
     only_diffusion = gr.Checkbox(value=False, visible=False)
     with gr.Row():
         with gr.Column(scale=6, elem_classes=["step-card", "card-model"]):
             gr.Markdown("### 1. 模型文件")
-            gr.Markdown("先选主模型和配置；推荐使用增强文件。")
+            gr.Markdown("先选训练工作区模型、已导入的模型，或上传单文件推理包。")
             with gr.Tabs():
-                with gr.TabItem('本地模型') as local_model_tab_local:
-                    gr.Markdown("#### 必需")
-                    gr.Markdown(f"本地模型目录：`{LOCAL_MODEL_ROOT}`")
-                    local_model_refresh_btn = gr.Button('刷新本地模型列表', elem_classes=["info-action"], elem_id="infer-local-refresh")
-                    local_model_selection = gr.Dropdown(
-                        label='选择本地模型文件夹',
-                        choices=initial_local_model_choices,
-                        value=initial_local_model_selection,
+                with gr.TabItem('训练工作区') as workspace_model_tab:
+                    gr.Markdown(f"训练工作区目录：`{WORKSPACE_MODEL_ROOT}`")
+                    workspace_model_refresh_btn = gr.Button('刷新训练工作区列表', elem_classes=["info-action"], elem_id="infer-workspace-refresh")
+                    workspace_model_selection = gr.Dropdown(
+                        label='选择训练工作区模型',
+                        choices=initial_workspace_choices,
+                        value=initial_workspace_selection,
                         interactive=True,
                     )
-                    local_model_checkpoint_selection = gr.Dropdown(
+                    workspace_model_checkpoint_selection = gr.Dropdown(
                         label='选择主模型 G_*.pth',
-                        choices=initial_local_model_checkpoints,
-                        value=initial_local_model_checkpoint_selection,
-                        interactive=bool(initial_local_model_checkpoints),
+                        choices=initial_workspace_checkpoints,
+                        value=initial_workspace_checkpoint_selection,
+                        interactive=bool(initial_workspace_checkpoints),
                     )
-                    with gr.Accordion("可选增强文件", open=True):
+                    with gr.Accordion("音质增强和音色增强文件", open=True):
                         with gr.Row():
-                            diff_model_path = gr.File(label="音质增强模型 `.pt`")
-                            diff_config_path = gr.File(label="音质增强配置 `.yaml`")
-                        cluster_model_path = gr.File(label="音色增强文件 `.pkl` 或聚类文件")
+                            diff_model_path = gr.Textbox(label="音质增强模型 `.pt`", value=initial_workspace_diff_model_path or "", interactive=False)
+                            diff_config_path = gr.Textbox(label="音质增强配置 `.yaml`", value=initial_workspace_diff_config_path or "", interactive=False)
+                        cluster_model_path = gr.Textbox(label="音色增强索引 `.pkl`", value=initial_workspace_cluster_model_path or "", interactive=False)
+                    workspace_export_bundle_btn = gr.Button("导出当前模型包", elem_classes=["info-action"])
+                    workspace_export_bundle_status = gr.HTML('<div class="subtle-note">会基于当前选中的 G_*.pth 导出当前模型包；若目录里存在扩散、索引，也会自动一起打包。</div>')
+                    workspace_export_bundle_path = gr.Textbox(label="生成路径", value="", interactive=False)
+                    workspace_open_export_location_btn = gr.Button("打开文件位置", interactive=False, elem_classes=["info-action"])
+                with gr.TabItem('已导入的模型') as imported_model_tab:
+                    gr.Markdown(f"已导入模型目录：`{IMPORTED_MODEL_ROOT}`")
+                    imported_model_refresh_btn = gr.Button('刷新已导入模型列表', elem_classes=["info-action"], elem_id="infer-imported-refresh")
+                    imported_model_selection = gr.Dropdown(
+                        label='选择已导入的模型',
+                        choices=initial_imported_choices,
+                        value=initial_imported_selection,
+                        interactive=True,
+                    )
+                    imported_model_checkpoint_selection = gr.Dropdown(
+                        label='选择主模型 G_*.pth',
+                        choices=initial_imported_checkpoints,
+                        value=initial_imported_checkpoint_selection,
+                        interactive=bool(initial_imported_checkpoints),
+                    )
+                    with gr.Accordion("音质增强和音色增强文件", open=True):
+                        with gr.Row():
+                            imported_diff_model_path = gr.Textbox(label="音质增强模型 `.pt`", value=initial_imported_diff_model_path or "", interactive=False)
+                            imported_diff_config_path = gr.Textbox(label="音质增强配置 `.yaml`", value=initial_imported_diff_config_path or "", interactive=False)
+                        imported_cluster_model_path = gr.Textbox(label="音色增强索引 `.pkl`", value=initial_imported_cluster_model_path or "", interactive=False)
+                    imported_export_bundle_btn = gr.Button("导出当前模型包", elem_classes=["info-action"])
+                    imported_export_bundle_status = gr.HTML('<div class="subtle-note">会基于当前选中的 G_*.pth 导出当前模型包；若目录里存在扩散、索引，也会自动一起打包。</div>')
+                    imported_export_bundle_path = gr.Textbox(label="生成路径", value="", interactive=False)
+                    imported_open_export_location_btn = gr.Button("打开文件位置", interactive=False, elem_classes=["info-action"])
                 with gr.TabItem('手动上传') as local_model_tab_upload:
-                    gr.Markdown("#### 必需")
-                    with gr.Row():
-                        model_path = gr.File(label="So-VITS 模型 `.pth`")
-                        config_path = gr.File(label="模型配置 `.json`")
-                    with gr.Accordion("可选增强文件", open=True):
-                        with gr.Row():
-                            diff_model_path = gr.File(label="音质增强模型 `.pt`")
-                            diff_config_path = gr.File(label="音质增强配置 `.yaml`")
-                        cluster_model_path = gr.File(label="音色增强文件 `.pkl` 或聚类文件")
+                    model_path = gr.File(label="单文件推理包 `.pth`")
+                    config_path = gr.State(value=None)
         with gr.Column(scale=5, elem_classes=["step-card", "card-status"]):
             gr.Markdown("### 2. 加载与确认")
             device = gr.Dropdown(label="推理设备", choices=["Auto", *cuda.keys(), "cpu"], value="Auto")
-            gr.Markdown("#### 准备情况")
-            readiness_output = gr.HTML(
-                render_readiness_html(
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    initial_local_model_enabled,
-                    initial_local_model_selection,
-                    initial_local_model_checkpoint_selection,
-                )
-            )
+            with gr.Row():
+                enable_diffusion = gr.Checkbox(label="音质增强", value=initial_has_diffusion, interactive=initial_has_diffusion)
+                enable_cluster = gr.Checkbox(label="音色增强", value=initial_has_cluster, interactive=initial_has_cluster)
             model_load_button = gr.Button(value="加载模型", variant="primary", elem_classes=["primary-action"])
             model_unload_button = gr.Button(value="卸载模型", elem_classes=["danger-secondary"], elem_id="infer-unload")
             sid = gr.Dropdown(label="当前模型音色")
             gr.Markdown("#### 加载结果")
-            sid_output = gr.HTML(render_load_result_html("先加载主模型和配置。"))
+            sid_output = gr.HTML(render_load_result_html("先加载主模型包。"))
 
     with gr.Row():
         with gr.Column(scale=5, elem_classes=["step-card", "card-params"]):
@@ -320,76 +433,154 @@ with gr.Blocks(
             vc_output1 = gr.HTML(render_convert_result_html("等待开始转换。"))
             vc_output2 = gr.Audio(label="输出音频", interactive=False, elem_classes=["result-audio"])
 
-    local_model_refresh_btn.click(local_model_refresh_fn, outputs=local_model_selection, show_api=False).then(
-        local_model_checkpoint_refresh_fn,
-        [local_model_selection],
-        [local_model_checkpoint_selection],
+    workspace_model_refresh_btn.click(workspace_model_refresh_fn, outputs=workspace_model_selection, show_api=False).then(
+        model_checkpoint_refresh_fn,
+        [workspace_model_selection],
+        [workspace_model_checkpoint_selection],
         show_api=False,
     ).then(
-        render_readiness_html,
-        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection, local_model_checkpoint_selection],
-        [readiness_output],
+        model_option_refresh_fn,
+        [workspace_model_selection],
+        [enable_diffusion, enable_cluster],
+        show_api=False,
+    ).then(
+        model_extra_refresh_fn,
+        [workspace_model_selection],
+        [diff_model_path, diff_config_path, cluster_model_path],
+        show_api=False,
+    )
+    imported_model_refresh_btn.click(imported_model_refresh_fn, outputs=imported_model_selection, show_api=False).then(
+        model_checkpoint_refresh_fn,
+        [imported_model_selection],
+        [imported_model_checkpoint_selection],
+        show_api=False,
+    ).then(
+        model_option_refresh_fn,
+        [imported_model_selection],
+        [enable_diffusion, enable_cluster],
+        show_api=False,
+    ).then(
+        model_extra_refresh_fn,
+        [imported_model_selection],
+        [imported_diff_model_path, imported_diff_config_path, imported_cluster_model_path],
         show_api=False,
     )
     local_model_tab_upload.select(lambda: False, outputs=local_model_enabled, show_api=False)
-    local_model_tab_local.select(lambda: True, outputs=local_model_enabled, show_api=False)
+    local_model_tab_upload.select(
+        uploaded_bundle_option_refresh_fn,
+        [model_path],
+        [enable_diffusion, enable_cluster],
+        show_api=False,
+    )
+    workspace_model_tab.select(lambda: True, outputs=local_model_enabled, show_api=False)
+    workspace_model_tab.select(lambda: "workspace", outputs=model_source, show_api=False)
+    workspace_model_tab.select(
+        model_option_refresh_fn,
+        [workspace_model_selection],
+        [enable_diffusion, enable_cluster],
+        show_api=False,
+    )
+    workspace_model_tab.select(
+        model_extra_refresh_fn,
+        [workspace_model_selection],
+        [diff_model_path, diff_config_path, cluster_model_path],
+        show_api=False,
+    )
+    imported_model_tab.select(lambda: True, outputs=local_model_enabled, show_api=False)
+    imported_model_tab.select(lambda: "imported", outputs=model_source, show_api=False)
+    imported_model_tab.select(
+        model_option_refresh_fn,
+        [imported_model_selection],
+        [enable_diffusion, enable_cluster],
+        show_api=False,
+    )
+    imported_model_tab.select(
+        model_extra_refresh_fn,
+        [imported_model_selection],
+        [imported_diff_model_path, imported_diff_config_path, imported_cluster_model_path],
+        show_api=False,
+    )
     model_path.change(
-        render_readiness_html,
-        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection, local_model_checkpoint_selection],
-        [readiness_output],
+        uploaded_bundle_option_refresh_fn,
+        [model_path],
+        [enable_diffusion, enable_cluster],
         show_api=False,
     )
-    config_path.change(
-        render_readiness_html,
-        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection, local_model_checkpoint_selection],
-        [readiness_output],
-        show_api=False,
-    )
-    diff_model_path.change(
-        render_readiness_html,
-        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection, local_model_checkpoint_selection],
-        [readiness_output],
-        show_api=False,
-    )
-    diff_config_path.change(
-        render_readiness_html,
-        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection, local_model_checkpoint_selection],
-        [readiness_output],
-        show_api=False,
-    )
-    cluster_model_path.change(
-        render_readiness_html,
-        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection, local_model_checkpoint_selection],
-        [readiness_output],
-        show_api=False,
-    )
-    local_model_selection.change(
-        persist_local_model_selection,
-        [local_model_selection],
+    workspace_model_selection.change(
+        lambda selection: persist_selected_model("workspace", selection),
+        [workspace_model_selection],
         [],
         show_api=False,
     )
-    local_model_selection.change(
-        local_model_checkpoint_refresh_fn,
-        [local_model_selection],
-        [local_model_checkpoint_selection],
+    workspace_model_selection.change(
+        model_checkpoint_refresh_fn,
+        [workspace_model_selection],
+        [workspace_model_checkpoint_selection],
         show_api=False,
     )
-    local_model_selection.change(
-        render_readiness_html,
-        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection, local_model_checkpoint_selection],
-        [readiness_output],
+    workspace_model_selection.change(
+        model_option_refresh_fn,
+        [workspace_model_selection],
+        [enable_diffusion, enable_cluster],
         show_api=False,
     )
-    local_model_checkpoint_selection.change(
-        render_readiness_html,
-        [model_path, config_path, diff_model_path, diff_config_path, cluster_model_path, local_model_enabled, local_model_selection, local_model_checkpoint_selection],
-        [readiness_output],
+    workspace_model_selection.change(
+        model_extra_refresh_fn,
+        [workspace_model_selection],
+        [diff_model_path, diff_config_path, cluster_model_path],
+        show_api=False,
+    )
+    imported_model_selection.change(
+        lambda selection: persist_selected_model("imported", selection),
+        [imported_model_selection],
+        [],
+        show_api=False,
+    )
+    imported_model_selection.change(
+        model_checkpoint_refresh_fn,
+        [imported_model_selection],
+        [imported_model_checkpoint_selection],
+        show_api=False,
+    )
+    imported_model_selection.change(
+        model_option_refresh_fn,
+        [imported_model_selection],
+        [enable_diffusion, enable_cluster],
+        show_api=False,
+    )
+    imported_model_selection.change(
+        model_extra_refresh_fn,
+        [imported_model_selection],
+        [imported_diff_model_path, imported_diff_config_path, imported_cluster_model_path],
+        show_api=False,
+    )
+    workspace_export_bundle_btn.click(
+        export_local_model_bundle_action,
+        [workspace_model_selection, workspace_model_checkpoint_selection],
+        [workspace_export_bundle_status, workspace_export_bundle_path, workspace_open_export_location_btn],
+        show_api=False,
+    )
+    workspace_open_export_location_btn.click(
+        open_exported_file_location,
+        [workspace_export_bundle_path],
+        [],
+        show_api=False,
+    )
+    imported_export_bundle_btn.click(
+        export_local_model_bundle_action,
+        [imported_model_selection, imported_model_checkpoint_selection],
+        [imported_export_bundle_status, imported_export_bundle_path, imported_open_export_location_btn],
+        show_api=False,
+    )
+    imported_open_export_location_btn.click(
+        open_exported_file_location,
+        [imported_export_bundle_path],
+        [],
         show_api=False,
     )
     model_load_button.click(
         modelAnalysis,
-        [model_path, config_path, cluster_model_path, device, enhance, diff_model_path, diff_config_path, only_diffusion, local_model_enabled, local_model_selection, local_model_checkpoint_selection],
+        [model_path, config_path, cluster_model_path, device, enhance, diff_model_path, diff_config_path, only_diffusion, local_model_enabled, model_source, workspace_model_selection, workspace_model_checkpoint_selection, imported_model_selection, imported_model_checkpoint_selection, enable_diffusion, enable_cluster],
         [sid, sid_output],
         show_api=False,
     )

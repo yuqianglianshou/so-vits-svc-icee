@@ -193,9 +193,9 @@ model_assets/dependencies/base_models/44k/diffusion/*.pt
 !model_assets/dependencies/base_models/44k/diffusion/put_diffusion_base_model_here
 .vscode/launch.json
 
-model_assets/local/*
-!model_assets/local/.gitkeep
-model_assets/local/*.json
+model_assets/imported_models/*
+!model_assets/imported_models/.gitkeep
+model_assets/imported_models/*.json
 
 # macOS Finder metadata
 .DS_Store

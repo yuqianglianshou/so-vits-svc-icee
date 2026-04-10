@@ -38,7 +38,7 @@ def set_ui_notice(ui_notice: dict, message: str, ttl_seconds: int = 15):
     ui_notice["expires_at"] = time.time() + ttl_seconds
 
 
-def find_available_port(default_port: int, max_tries: int = 20) -> int:
+def find_available_port(default_port: int, max_tries: int = 100) -> int:
     env_port = os.environ.get("GRADIO_SERVER_PORT")
     if env_port:
         try:
@@ -55,6 +55,12 @@ def find_available_port(default_port: int, max_tries: int = 20) -> int:
                 return port
             except OSError:
                 continue
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("127.0.0.1", 0))
+        fallback_port = sock.getsockname()[1]
+        if fallback_port:
+            return fallback_port
     raise OSError(f"无法在 {default_port}-{default_port + max_tries - 1} 范围内找到可用端口。")
 
 

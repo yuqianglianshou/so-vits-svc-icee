@@ -5,6 +5,13 @@ import torch
 import yaml
 
 
+def resolve_torch_load_device(device='cpu'):
+    device_str = str(device or 'cpu')
+    if device_str.startswith('cuda') and not torch.cuda.is_available():
+        return torch.device('cpu')
+    return torch.device(device_str)
+
+
 def traverse_dir(
         root_dir,
         extensions,
@@ -120,14 +127,14 @@ def load_model(
         else:
             path_pt = path+'best.pt'
         print(' [*] restoring model from', path_pt)
-        ckpt = torch.load(path_pt, map_location=torch.device(device))
+        ckpt = torch.load(path_pt, map_location=resolve_torch_load_device(device))
         global_step = ckpt['global_step']
         model.load_state_dict(ckpt['model'], strict=False)
         if ckpt.get("optimizer") is not None:
             optimizer.load_state_dict(ckpt['optimizer'])
     elif fallback_checkpoint is not None and os.path.isfile(fallback_checkpoint):
         print(' [*] restoring base model from', fallback_checkpoint)
-        ckpt = torch.load(fallback_checkpoint, map_location=torch.device(device))
+        ckpt = torch.load(fallback_checkpoint, map_location=resolve_torch_load_device(device))
         global_step = 0
         model.load_state_dict(ckpt['model'], strict=False)
     return global_step, model, optimizer

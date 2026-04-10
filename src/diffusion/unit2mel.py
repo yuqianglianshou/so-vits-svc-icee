@@ -6,6 +6,7 @@ import torch.nn as nn
 import yaml
 
 from .diffusion import GaussianDiffusion
+from .logger.utils import resolve_torch_load_device
 from .vocoder import Vocoder
 from .wavenet import WaveNet
 
@@ -50,7 +51,7 @@ def load_model_vocoder(
                 )
     
     print(' [Loading] ' + model_path)
-    ckpt = torch.load(model_path, map_location=torch.device(device))
+    ckpt = torch.load(model_path, map_location=resolve_torch_load_device(device))
     model.to(device)
     model.load_state_dict(ckpt['model'])
     model.eval()
