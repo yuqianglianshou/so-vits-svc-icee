@@ -13,7 +13,7 @@ def refresh_live_task_panel(
     active_task: dict,
     task_lifecycle_cache: dict,
     render_button_updates_fn,
-    render_workspace_control_updates_fn,
+    render_workspace_live_control_updates_fn,
     render_task_panel_snapshot_fn,
 ):
     proc = active_task["proc"]
@@ -35,7 +35,7 @@ def refresh_live_task_panel(
         task_refresh_token_update = gr.skip()
 
     button_updates = render_button_updates_fn(model_name, raw_dir, train_dir)
-    workspace_control_updates = render_workspace_control_updates_fn()
+    workspace_control_updates = render_workspace_live_control_updates_fn()
     return (
         *render_task_panel_snapshot_fn(model_name, raw_dir, train_dir),
         *button_updates,
@@ -57,10 +57,10 @@ def refresh_dashboard(
     render_task_panel_snapshot_fn,
     load_model_batch_size_fn,
     render_button_updates_fn,
-    render_workspace_control_updates_fn,
+    render_workspace_refresh_updates_fn,
 ):
     button_updates = render_button_updates_fn(model_name, raw_dir, train_dir)
-    workspace_control_updates = render_workspace_control_updates_fn()
+    workspace_control_updates = render_workspace_refresh_updates_fn(model_name)
     (
         stage_alert_text,
         runtime_banner_text,
@@ -100,8 +100,9 @@ def refresh_text_dashboard(
     current_task_feedback_fn,
     task_runtime_text_fn,
     tail_log_fn,
+    resolve_task_log_path_fn,
 ):
-    log_path = active_task["log_path"]
+    log_path = resolve_task_log_path_fn(active_task)
     return (
         render_model_workspace_summary_fn(model_name),
         gr.update(label=dataset_file_list_label_fn(raw_dir)),
@@ -128,11 +129,12 @@ def auto_refresh_dashboard(
     render_preflight_check_fn,
     render_stage_alert_fn,
     tail_log_fn,
+    resolve_task_log_path_fn,
 ):
     try:
         return refresh_text_dashboard_fn(model_name, raw_dir, train_dir)
     except Exception as exc:
-        log_path = active_task["log_path"]
+        log_path = resolve_task_log_path_fn(active_task)
         safe_model_name = sanitize_model_name(model_name)
         safe_raw_dir = sanitize_dataset_name(raw_dir) or safe_model_name
         safe_train_dir = train_dir or default_train_dir_for_dataset(safe_raw_dir)

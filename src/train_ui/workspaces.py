@@ -83,20 +83,41 @@ def infer_workspace_dataset_name(model_name: str):
     return sanitize_model_name(model_name)
 
 
+def is_model_workspace_candidate(path: Path) -> bool:
+    if not path.is_dir():
+        return False
+    markers = (
+        path / "workspace.json",
+        path / "config.json",
+        path / "diffusion.yaml",
+        path / "feature_and_index.pkl",
+        path / "diffusion",
+        path / "filelists",
+    )
+    if any(marker.exists() for marker in markers):
+        return True
+    return any(path.glob("G_*.pth")) or any(path.glob("D_*.pth"))
+
+
 def scan_model_workspaces():
     logs_dir = ROOT / "model_assets/workspaces"
     logs_dir.mkdir(parents=True, exist_ok=True)
-    models = []
+    ensure_raw_dataset_parent()
+    models = set()
     for child in sorted(logs_dir.iterdir()):
-        if not child.is_dir() or child.name == "webui_tasks":
+        if child.name == "webui_tasks" or not is_model_workspace_candidate(child):
             continue
         workspace = load_model_workspace(child.name)
         expected_dataset_name = infer_workspace_dataset_name(child.name)
         if workspace is None or workspace.get("dataset_name") != expected_dataset_name:
             workspace = save_model_workspace(child.name, expected_dataset_name)
-        models.append(workspace["model_name"])
+        models.add(workspace["model_name"])
+    for child in sorted(RAW_DATASET_PARENT.iterdir()):
+        if child.is_dir() and child.name != "webui_tasks":
+            models.add(infer_workspace_dataset_name(child.name))
+    models = sorted(models)
     if not models:
-        models.append("default_model")
+        models = ["default_model"]
     return models
 
 

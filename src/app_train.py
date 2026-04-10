@@ -92,6 +92,7 @@ from src.train_ui.panels import build_stage_alert_text, build_task_feedback
 from src.train_ui.runtime import (
     render_preflight_check as render_preflight_check_html,
     render_runtime_banner as render_runtime_banner_text,
+    resolve_task_log_path,
     render_task_panel_snapshot as render_task_panel_snapshot_text,
     tail_log,
     task_runtime_text as task_runtime_text_render,
@@ -134,6 +135,7 @@ ACTIVE_TASK = {
     "name": None,
     "proc": None,
     "log_path": None,
+    "display_log_path": None,
     "cmd": None,
     "started_at": None,
     "thread": None,
@@ -539,6 +541,19 @@ def render_workspace_control_updates():
     )
 
 
+def render_workspace_refresh_updates(current_model_name: str):
+    locked = has_active_task()
+    safe_model_name = sanitize_model_name(current_model_name)
+    choices = scan_model_workspaces()
+    value = safe_model_name if safe_model_name in choices else (choices[0] if choices else "default_model")
+    return (
+        gr.update(choices=choices, value=value, interactive=not locked),
+        gr.update(interactive=not locked),
+        gr.update(interactive=not locked),
+        gr.update(interactive=not locked),
+    )
+
+
 def normalize_speech_encoder_choice(speech_encoder: str):
     supported = set(get_supported_speech_encoders())
     choice = (speech_encoder or "").strip()
@@ -764,7 +779,7 @@ def current_stage_label():
 def current_task_feedback(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "training_data/processed/44k"):
     proc = ACTIVE_TASK["proc"]
     task_name = ACTIVE_TASK["name"]
-    log_path = ACTIVE_TASK["log_path"]
+    log_path = resolve_task_log_path(ACTIVE_TASK)
     pipeline_name = ACTIVE_TASK["pipeline_name"]
     thread = ACTIVE_TASK["thread"]
     if task_name is None and pipeline_name is None:
@@ -861,7 +876,7 @@ def refresh_live_task_panel(model_name: str, raw_dir: str, train_dir: str):
         active_task=ACTIVE_TASK,
         task_lifecycle_cache=TASK_LIFECYCLE_CACHE,
         render_button_updates_fn=render_button_updates,
-        render_workspace_control_updates_fn=render_workspace_control_updates,
+        render_workspace_live_control_updates_fn=render_workspace_control_updates,
         render_task_panel_snapshot_fn=render_task_panel_snapshot,
     )
 
@@ -879,7 +894,7 @@ def refresh_dashboard(model_name: str, raw_dir: str, train_dir: str):
         render_task_panel_snapshot_fn=render_task_panel_snapshot,
         load_model_batch_size_fn=load_model_batch_size,
         render_button_updates_fn=render_button_updates,
-        render_workspace_control_updates_fn=render_workspace_control_updates,
+        render_workspace_refresh_updates_fn=render_workspace_refresh_updates,
     )
 
 
@@ -898,6 +913,7 @@ def refresh_text_dashboard(model_name: str, raw_dir: str, train_dir: str):
         current_task_feedback_fn=current_task_feedback,
         task_runtime_text_fn=task_runtime_text,
         tail_log_fn=tail_log,
+        resolve_task_log_path_fn=resolve_task_log_path,
     )
 
 
@@ -914,13 +930,15 @@ def auto_refresh_dashboard(model_name: str, raw_dir: str, train_dir: str):
         render_preflight_check_fn=render_preflight_check,
         render_stage_alert_fn=render_stage_alert,
         tail_log_fn=tail_log,
+        resolve_task_log_path_fn=resolve_task_log_path,
     )
 
 
-def set_active_task(task_name: str, cmd: Optional[List[str]], log_path: Path, proc=None, pipeline_name: Optional[str] = None):
+def set_active_task(task_name: str, cmd: Optional[List[str]], log_path: Path, proc=None, pipeline_name: Optional[str] = None, display_log_path: Optional[Path] = None):
     ACTIVE_TASK["name"] = task_name
     ACTIVE_TASK["proc"] = proc
     ACTIVE_TASK["log_path"] = log_path
+    ACTIVE_TASK["display_log_path"] = display_log_path
     ACTIVE_TASK["cmd"] = cmd
     ACTIVE_TASK["stage_label"] = TASK_STAGE_LABELS.get(task_name, task_name)
     ACTIVE_TASK["pipeline_name"] = pipeline_name

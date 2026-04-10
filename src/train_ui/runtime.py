@@ -10,6 +10,10 @@ from src.train_ui.text import format_duration, format_duration_clock
 from src.train_ui.workspace import count_raw_dataset_wavs, count_training_wavs
 
 
+def resolve_task_log_path(active_task: dict) -> Path | None:
+    return active_task.get("display_log_path") or active_task.get("log_path")
+
+
 def detect_cuda_status() -> str:
     try:
         import torch
@@ -116,12 +120,13 @@ def task_runtime_text(active_task: dict, *, current_stage_label_fn, pipeline_lab
     else:
         status = "运行中" if proc.poll() is None else f"已结束（退出码 {proc.returncode}）"
     task_display = pipeline_labels.get(pipeline_name, pipeline_name) if pipeline_name else active_task["name"]
+    log_path = resolve_task_log_path(active_task)
     return (
         f"任务：{task_display}\n"
         f"阶段：{current_stage_label_fn()}\n"
         f"状态：{status}\n"
         f"已运行：{elapsed_text}\n"
-        f"日志：{active_task['log_path']}\n"
+        f"日志：{log_path}\n"
         f"命令：{' '.join(active_task['cmd']) if active_task['cmd'] else '等待当前子步骤启动'}"
     )
 
@@ -158,7 +163,7 @@ def render_task_panel_snapshot(
     current_stage_label_fn,
     pipeline_labels: dict,
 ):
-    log_path = active_task["log_path"]
+    log_path = resolve_task_log_path(active_task)
     return (
         render_stage_alert_fn(model_name, raw_dir, train_dir),
         render_runtime_banner(active_task, current_stage_label_fn=current_stage_label_fn, pipeline_labels=pipeline_labels),

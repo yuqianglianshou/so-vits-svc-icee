@@ -104,10 +104,11 @@ def _terminate_process_tree(proc):
 
 
 def _running_conflict_response(active_task: dict, task_runtime_text_fn: Callable[[], str], tail_log_fn: Callable[[Path], str]):
+    log_path = active_task.get("display_log_path") or active_task["log_path"]
     return (
         f"已有任务正在运行：{active_task['pipeline_name'] or active_task['name']}。\n请先停止当前任务，再启动新的任务。",
         task_runtime_text_fn(),
-        tail_log_fn(active_task["log_path"]),
+        tail_log_fn(log_path),
     )
 
 
@@ -132,7 +133,7 @@ def start_pipeline(
     active_task["started_at"] = time.time()
     active_task["stop_requested"] = False
     active_task["thread"] = None
-    set_active_task_fn(steps[0][0], steps[0][1], log_path, proc=None, pipeline_name=pipeline_name)
+    set_active_task_fn(steps[0][0], steps[0][1], log_path, proc=None, pipeline_name=pipeline_name, display_log_path=None)
     active_task["stage_label"] = "准备开始"
 
     def runner():
@@ -148,7 +149,7 @@ def start_pipeline(
                 append_pipeline_log_fn(log_path, f"[Pipeline] 开始 {task_stage_labels.get(task_name, task_name)}")
                 log_file = log_path.open("a", encoding="utf-8")
                 proc = _spawn_popen(cmd, log_file)
-                set_active_task_fn(task_name, cmd, log_path, proc=proc, pipeline_name=pipeline_name)
+                set_active_task_fn(task_name, cmd, log_path, proc=proc, pipeline_name=pipeline_name, display_log_path=None)
 
                 if not wait_for_exit:
                     append_pipeline_log_fn(log_path, f"[Pipeline] 已自动切换到 {task_stage_labels.get(task_name, task_name)}。")
@@ -190,6 +191,7 @@ def start_task(
     set_active_task_fn: Callable,
     task_runtime_text_fn: Callable[[], str],
     tail_log_fn: Callable[[Path], str],
+    display_log_path: Path | None = None,
 ):
     """启动单个训练子任务，并接管当前活动任务状态。"""
     if _task_running(active_task):
@@ -202,11 +204,11 @@ def start_task(
     active_task["pipeline_name"] = None
     active_task["stop_requested"] = False
     active_task["started_at"] = time.time()
-    set_active_task_fn(task_name, cmd, log_path, proc=proc, pipeline_name=None)
+    set_active_task_fn(task_name, cmd, log_path, proc=proc, pipeline_name=None, display_log_path=display_log_path)
     return (
         f"已启动任务：{task_stage_labels.get(task_name, task_name)}\n日志文件：{log_path}",
         task_runtime_text_fn(),
-        tail_log_fn(log_path),
+        tail_log_fn(display_log_path or log_path),
     )
 
 
@@ -220,11 +222,12 @@ def stop_task(
     """向当前任务发送停止信号。"""
     proc = active_task["proc"]
     thread = active_task["thread"]
+    log_path = active_task.get("display_log_path") or active_task["log_path"]
     if (proc is None or proc.poll() is not None) and not (thread is not None and thread.is_alive()):
-        return "当前没有可停止的任务。", task_runtime_text_fn(), tail_log_fn(active_task["log_path"])
+        return "当前没有可停止的任务。", task_runtime_text_fn(), tail_log_fn(log_path)
     active_task["stop_requested"] = True
     _terminate_process_tree(proc)
-    return f"已发送停止信号：{active_task['pipeline_name'] or current_stage_label_fn()}", task_runtime_text_fn(), tail_log_fn(active_task["log_path"])
+    return f"已发送停止信号：{active_task['pipeline_name'] or current_stage_label_fn()}", task_runtime_text_fn(), tail_log_fn(log_path)
 
 
 def launch_resample(raw_dir: str, train_dir: str, *, active_task: dict, task_log_dir: Path, task_stage_labels: dict, set_active_task_fn: Callable, task_runtime_text_fn: Callable[[], str], tail_log_fn: Callable[[Path], str]):
@@ -351,6 +354,7 @@ def launch_train_diff(model_name: str, *, active_task: dict, task_log_dir: Path,
         set_active_task_fn=set_active_task_fn,
         task_runtime_text_fn=task_runtime_text_fn,
         tail_log_fn=tail_log_fn,
+        display_log_path=model_diffusion_dir(model_name) / "log_info.txt",
     )
 
 
