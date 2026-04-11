@@ -207,38 +207,45 @@ def convert_tts_audio(
 
     rate = f"+{int(rate * 100)}%" if rate >= 0 else f"{int(rate * 100)}%"
     volume = f"+{int(volume * 100)}%" if volume >= 0 else f"{int(volume * 100)}%"
-    if lang == "Auto":
-        gender = "Male" if gender == "男" else "Female"
-        subprocess.run([sys.executable, "-m", "src.edgetts.tts", text, lang, rate, volume, gender])
-    else:
-        subprocess.run([sys.executable, "-m", "src.edgetts.tts", text, lang, rate, volume])
-    target_sr = 44100
-    y, sr = librosa.load("tts.wav")
-    resampled_y = librosa.resample(y, orig_sr=sr, target_sr=target_sr)
-    soundfile.write("tts.wav", resampled_y, target_sr, subtype="PCM_16")
-    preview_file, flac_download_file, wav_download_file = vc_infer_with_model(
-        model,
-        sid,
-        "tts.wav",
-        "tts",
-        vc_transform,
-        auto_f0,
-        cluster_ratio,
-        slice_db,
-        noise_scale,
-        pad_seconds,
-        cl_num,
-        lg_num,
-        lgr_num,
-        f0_predictor,
-        enhancer_adaptive_key,
-        cr_threshold,
-        k_step,
-        second_encoding,
-        loudness_envelope_adjustment,
-    )
-    os.remove("tts.wav")
-    return "Success", preview_file, flac_download_file, wav_download_file
+    gender = "Male" if gender == "男" else "Female"
+    temp_tts = tempfile.NamedTemporaryFile(prefix="infer_tts_", suffix=".wav", delete=False)
+    temp_tts.close()
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "src.edgetts.tts", text, lang, rate, volume, gender, temp_tts.name],
+            check=True,
+        )
+        target_sr = 44100
+        y, sr = librosa.load(temp_tts.name)
+        resampled_y = librosa.resample(y, orig_sr=sr, target_sr=target_sr)
+        soundfile.write(temp_tts.name, resampled_y, target_sr, subtype="PCM_16")
+        preview_file, flac_download_file, wav_download_file = vc_infer_with_model(
+            model,
+            sid,
+            temp_tts.name,
+            "tts",
+            vc_transform,
+            auto_f0,
+            cluster_ratio,
+            slice_db,
+            noise_scale,
+            pad_seconds,
+            cl_num,
+            lg_num,
+            lgr_num,
+            f0_predictor,
+            enhancer_adaptive_key,
+            cr_threshold,
+            k_step,
+            second_encoding,
+            loudness_envelope_adjustment,
+        )
+        return "Success", preview_file, flac_download_file, wav_download_file
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(f"文本转语音失败，退出码 {exc.returncode}。") from exc
+    finally:
+        if os.path.exists(temp_tts.name):
+            os.remove(temp_tts.name)
 
 
 def quality_convert(model, sid, input_audio, quality_mode, vc_transform, cluster_ratio, k_step, best_quality_preset):

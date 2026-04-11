@@ -1,48 +1,45 @@
 import logging
 import os
-import shutil
 import socket
-import subprocess
-import sys
-import traceback
 import webbrowser
 from pathlib import Path
 
 import gradio as gr
-import soundfile as sf
 import torch
 
 from src.gradio_api_info_fallback import apply_gradio_4_api_info_patch
-from src.inference.infer_tool import Svc
+from src.infer_ui.input_history import (
+    build_input_audio_history_choices,
+    handle_selected_history_audio,
+    handle_uploaded_input_audio,
+    refresh_input_audio_history,
+)
 from src.infer_ui.local_models import (
     IMPORTED_MODEL_ROOT,
     WORKSPACE_MODEL_ROOT,
-    detect_local_model_extras,
     imported_model_refresh_fn,
-    list_local_model_checkpoints,
-    list_local_model_diffusion_checkpoints,
-    load_last_selected_infer_model,
     model_checkpoint_refresh_fn,
     model_diffusion_checkpoint_refresh_fn,
     model_extra_refresh_fn,
     model_option_refresh_fn,
     persist_selected_model,
-    save_last_selected_infer_model,
-    scan_imported_models,
-    scan_workspace_models,
     workspace_model_refresh_fn,
 )
-from src.infer_ui.bundle import BUNDLE_VERSION, export_local_model_bundle, inspect_infer_bundle_extras
-from src.infer_ui.convert import quality_convert
-from src.infer_ui.files import resolve_model_inputs
-from src.infer_ui.runtime import (
-    build_loaded_model_result,
-    export_runtime_summary_for_model,
-    resolve_device_choice,
+from src.infer_ui.model_state import build_initial_model_state
+from src.infer_ui.model_actions import (
+    export_local_model_bundle_action,
+    open_exported_file_location,
+    uploaded_bundle_option_refresh_fn,
 )
+from src.infer_ui.model_runtime import (
+    export_runtime_summary as export_runtime_summary_for_current_model,
+    safe_analyze_and_load_model,
+    unload_model,
+)
+from src.infer_ui.convert import convert_tts_audio, quality_convert
+from src.infer_ui.runtime import render_load_result_html
 from src.infer_ui.text import (
     render_convert_result_html,
-    render_load_result_html,
 )
 from src.quality_presets import BEST_QUALITY_PRESET, QUALITY_MODES
 
@@ -95,87 +92,45 @@ if torch.cuda.is_available():
         device_name = torch.cuda.get_device_properties(i).name
         cuda[f"CUDA:{i} {device_name}"] = f"cuda:{i}"
 
-def load_model_from_paths(model_path, config_path, cluster_model_path, device, enhance, diff_model_path, diff_config_path, only_diffusion):
-    """按给定文件路径加载 So-VITS 模型，并返回音色列表与加载摘要。"""
-    global model
-    try:
-        device = resolve_device_choice(device, cuda)
-        cluster_filepath = os.path.split(cluster_model_path) if cluster_model_path else ("", "no_cluster")
-        fr = ".pkl" in cluster_filepath[1]
-        model = Svc(
-            model_path,
-            config_path,
-            device=device if device != "Auto" else None,
-            cluster_model_path=cluster_model_path or "",
-            nsf_hifigan_enhance=enhance,
-            diffusion_model_path=diff_model_path or "",
-            diffusion_config_path=diff_config_path or "",
-            shallow_diffusion=True if diff_model_path else False,
-            only_diffusion=only_diffusion,
-            feature_retrieval=fr,
-        )
-        spks, default_spk, summary_html = build_loaded_model_result(model, cluster_model_path, diff_model_path)
-        return gr.update(choices=spks, value=default_spk), summary_html
-    except Exception as e:
-        if debug:
-            traceback.print_exc()
-        raise gr.Error(e)
-
 def modelAnalysis(model_path, config_path, cluster_model_path, device, enhance, diff_model_path, diff_config_path, only_diffusion, local_model_enabled, model_source, workspace_model_selection, workspace_model_checkpoint_selection, workspace_diffusion_checkpoint_selection, imported_model_selection, imported_model_checkpoint_selection, imported_diffusion_checkpoint_selection, enable_diffusion, enable_cluster):
     """统一处理上传模式和本地模式下的模型加载入口。"""
-    try:
-        model_path, config_path, cluster_model_path, diff_model_path, diff_config_path = resolve_model_inputs(
-            model_path,
-            config_path,
-            cluster_model_path,
-            diff_model_path,
-            diff_config_path,
-            local_model_enabled,
-            model_source,
-            workspace_model_selection,
-            workspace_model_checkpoint_selection,
-            workspace_diffusion_checkpoint_selection,
-            imported_model_selection,
-            imported_model_checkpoint_selection,
-            imported_diffusion_checkpoint_selection,
-            enable_diffusion=enable_diffusion,
-            enable_cluster=enable_cluster,
-        )
-        save_last_selected_infer_model(model_source or "imported", str(Path(model_path).parent))
-        return load_model_from_paths(
-            model_path,
-            config_path,
-            cluster_model_path,
-            device,
-            enhance,
-            diff_model_path,
-            diff_config_path,
-            only_diffusion,
-        )
-    except Exception as e:
-        if debug:
-            traceback.print_exc()
-        raise gr.Error(e)
+    global model
+    model, sid_update, summary_html = safe_analyze_and_load_model(
+        model_path,
+        config_path,
+        cluster_model_path,
+        device,
+        enhance,
+        diff_model_path,
+        diff_config_path,
+        only_diffusion,
+        local_model_enabled,
+        model_source,
+        workspace_model_selection,
+        workspace_model_checkpoint_selection,
+        workspace_diffusion_checkpoint_selection,
+        imported_model_selection,
+        imported_model_checkpoint_selection,
+        imported_diffusion_checkpoint_selection,
+        enable_diffusion,
+        enable_cluster,
+        cuda_map=cuda,
+        debug=debug,
+    )
+    return sid_update, summary_html
 
 
 def export_runtime_summary(sid, quality_mode, vc_transform, cluster_ratio, k_step):
     """导出当前已加载模型的推理运行摘要。"""
     global model
-    if model is None:
-        return "当前没有已加载模型，无法生成运行摘要。"
-    return export_runtime_summary_for_model(model, sid, quality_mode, vc_transform, cluster_ratio, k_step)
+    return export_runtime_summary_for_current_model(model, sid, quality_mode, vc_transform, cluster_ratio, k_step)
 
     
 def modelUnload():
     """卸载当前模型，并清理显存缓存。"""
     global model
-    if model is None:
-        return gr.update(choices=[], value=""), render_load_result_html("当前没有已加载模型。")
-    else:
-        model.unload_model()
-        model = None
-        torch.cuda.empty_cache()
-        return gr.update(choices=[], value=""), render_load_result_html("模型已卸载。")
+    model, sid_update, summary_html = unload_model(model)
+    return sid_update, summary_html
 
 def apply_quality_mode(mode):
     """根据质量模式同步推荐的检索比例和浅扩散步数。"""
@@ -189,144 +144,32 @@ def quality_vc_fn(sid, input_audio, quality_mode, vc_transform, cluster_ratio, k
     return quality_convert(model, sid, input_audio, quality_mode, vc_transform, cluster_ratio, k_step, BEST_QUALITY_PRESET)
 
 
-def list_input_audio_history():
-    INPUT_AUDIO_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
-    audio_exts = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac"}
-    files = [
-        path.as_posix()
-        for path in INPUT_AUDIO_HISTORY_DIR.iterdir()
-        if path.is_file() and path.suffix.lower() in audio_exts and not path.name.startswith(".")
-    ]
-    files.sort(key=lambda item: Path(item).stat().st_mtime, reverse=True)
-    return files
-
-
-def build_input_audio_history_choices():
-    return [(Path(path).name, path) for path in list_input_audio_history()]
-
-
-def save_input_audio_to_history(audio_path):
-    if not audio_path:
-        return None
-    source = Path(audio_path)
-    if not source.exists():
-        return None
-    INPUT_AUDIO_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
-    target = INPUT_AUDIO_HISTORY_DIR / source.name
-    stem = source.stem
-    suffix = source.suffix
-    index = 2
-    while target.exists() and target.resolve() != source.resolve():
-        target = INPUT_AUDIO_HISTORY_DIR / f"{stem}_{index}{suffix}"
-        index += 1
-    if target.resolve() != source.resolve():
-        shutil.copy2(source, target)
-    return target.as_posix()
-
-
-def handle_uploaded_input_audio(audio_path):
-    saved_path = save_input_audio_to_history(audio_path)
-    choices = list_input_audio_history()
-    info_html = describe_input_audio(saved_path)
-    preview_value = preview_input_audio(saved_path)
-    return (
-        gr.update(choices=choices, value=saved_path, interactive=bool(choices)),
-        info_html,
-        preview_value,
-    )
-
-
-def handle_selected_history_audio(audio_path):
-    resolved_path = audio_path or None
-    return describe_input_audio(resolved_path), preview_input_audio(resolved_path)
-
-
-def describe_input_audio(audio_path):
-    if not audio_path:
-        return '<div class="subtle-note">尚未选择输入音频。</div>'
-    try:
-        info = sf.info(audio_path)
-        minutes = int(info.duration // 60)
-        seconds = int(round(info.duration % 60))
-        if seconds == 60:
-            minutes += 1
-            seconds = 0
-        duration_text = f"{minutes}:{seconds:02d}"
-        return (
-            '<div class="subtle-note">'
-            f'后端识别时长：{duration_text}（{info.duration:.2f} 秒）；'
-            f'采样率：{info.samplerate} Hz；'
-            f'声道：{info.channels}；'
-            f'格式：{info.format}'
-            '</div>'
-        )
-    except Exception as exc:
-        return f'<div class="subtle-note">无法读取输入音频信息：{type(exc).__name__}: {exc}</div>'
-
-
-def preview_input_audio(audio_path):
-    return audio_path or None
-
-
-def export_local_model_bundle_action(model_selection, model_checkpoint_selection):
-    try:
-        bundle_path, bundle_meta = export_local_model_bundle(model_selection, model_checkpoint_selection)
-        extras = []
-        if bundle_meta.get("has_diffusion"):
-            extras.append("扩散")
-        if bundle_meta.get("has_index"):
-            extras.append("索引")
-        if bundle_meta.get("has_cover"):
-            extras.append("封面")
-        if bundle_meta.get("has_description"):
-            extras.append("说明")
-        extras_text = f"；已自动包含：{', '.join(extras)}" if extras else "；当前目录未检测到可打包的额外资产"
-        return (
-            f'<div class="subtle-note">已导出当前模型包{extras_text}</div>',
-            bundle_path.as_posix(),
-            gr.update(interactive=True),
-        )
-    except Exception as exc:
-        if debug:
-            traceback.print_exc()
-        raise gr.Error(exc)
-
-
-def open_exported_file_location(exported_path):
-    if not exported_path:
-        raise gr.Error("当前还没有可打开位置的导出文件。")
-
-    target = Path(exported_path).expanduser().resolve()
-    if not target.exists():
-        raise gr.Error(f"导出文件不存在：{target.as_posix()}")
-
-    try:
-        if sys.platform == "darwin":
-            subprocess.Popen(["/usr/bin/open", "-R", str(target)], start_new_session=True)
-        elif os.name == "nt":
-            subprocess.Popen(["explorer", "/select,", str(target)])
-        else:
-            subprocess.Popen(["/usr/bin/xdg-open", str(target.parent)], start_new_session=True)
-        return gr.update()
-    except Exception as exc:
-        if debug:
-            traceback.print_exc()
-        raise gr.Error(f"无法打开文件位置：{exc}")
-
-
-def build_extra_option_updates(*, has_diffusion: bool, has_cluster: bool):
-    return (
-        gr.update(value=has_diffusion, interactive=has_diffusion),
-        gr.update(value=has_cluster, interactive=has_cluster),
-    )
-
-
-def uploaded_bundle_option_refresh_fn(model_path):
-    bundle_path = getattr(model_path, "name", model_path) if model_path is not None else ""
-    extras = inspect_infer_bundle_extras(bundle_path)
-    return build_extra_option_updates(
-        has_diffusion=bool(extras.get("has_diffusion")),
-        has_cluster=bool(extras.get("has_index")),
+def tts_vc_fn(sid, text, lang, gender, rate, volume, quality_mode, vc_transform, cluster_ratio, k_step):
+    """文本转语音后再走当前模型转换。"""
+    global model
+    return convert_tts_audio(
+        model,
+        text,
+        lang,
+        gender,
+        rate,
+        volume,
+        sid,
+        vc_transform,
+        BEST_QUALITY_PRESET["auto_predict_f0"],
+        cluster_ratio,
+        BEST_QUALITY_PRESET["slice_db"],
+        BEST_QUALITY_PRESET["noise_scale"],
+        BEST_QUALITY_PRESET["pad_seconds"],
+        BEST_QUALITY_PRESET["clip_seconds"],
+        BEST_QUALITY_PRESET["linear_gradient"],
+        BEST_QUALITY_PRESET["linear_gradient_retain"],
+        BEST_QUALITY_PRESET["f0_predictor"],
+        BEST_QUALITY_PRESET["enhancer_adaptive_key"],
+        BEST_QUALITY_PRESET["cr_threshold"],
+        k_step,
+        BEST_QUALITY_PRESET["second_encoding"],
+        BEST_QUALITY_PRESET["loudness_envelope_adjustment"],
     )
 
 
@@ -340,42 +183,8 @@ with gr.Blocks(
     ),
     css=INFER_PAGE_CSS,
 ) as app:
-    initial_workspace_choices = scan_workspace_models()
-    initial_imported_choices = scan_imported_models()
-    remembered_source, remembered_model_dir = load_last_selected_infer_model()
-    if initial_workspace_choices:
-        initial_model_source = "workspace"
-    elif initial_imported_choices:
-        initial_model_source = "imported"
-    else:
-        initial_model_source = "workspace"
-
-    initial_workspace_selection = (
-        remembered_model_dir
-        if initial_model_source == "workspace" and remembered_model_dir in initial_workspace_choices
-        else (initial_workspace_choices[0] if initial_workspace_choices else None)
-    )
-    initial_imported_selection = (
-        remembered_model_dir
-        if initial_model_source == "imported" and remembered_model_dir in initial_imported_choices
-        else (initial_imported_choices[0] if initial_imported_choices else None)
-    )
-    initial_workspace_checkpoints = list_local_model_checkpoints(initial_workspace_selection) if initial_workspace_selection else []
-    initial_imported_checkpoints = list_local_model_checkpoints(initial_imported_selection) if initial_imported_selection else []
-    initial_workspace_checkpoint_selection = initial_workspace_checkpoints[-1] if initial_workspace_checkpoints else None
-    initial_imported_checkpoint_selection = initial_imported_checkpoints[-1] if initial_imported_checkpoints else None
-    initial_workspace_diffusion_checkpoints = list_local_model_diffusion_checkpoints(initial_workspace_selection) if initial_workspace_selection else []
-    initial_imported_diffusion_checkpoints = list_local_model_diffusion_checkpoints(initial_imported_selection) if initial_imported_selection else []
-    initial_workspace_diffusion_checkpoint_selection = initial_workspace_diffusion_checkpoints[-1] if initial_workspace_diffusion_checkpoints else None
-    initial_imported_diffusion_checkpoint_selection = initial_imported_diffusion_checkpoints[-1] if initial_imported_diffusion_checkpoints else None
-    initial_local_model_enabled = bool(initial_workspace_selection or initial_imported_selection)
-    initial_selected_model_dir = initial_workspace_selection if initial_model_source == "workspace" else initial_imported_selection
-    initial_diff_model_path, initial_diff_config_path, initial_cluster_model_path = detect_local_model_extras(initial_selected_model_dir)
-    initial_workspace_diff_model_path, initial_workspace_diff_config_path, initial_workspace_cluster_model_path = detect_local_model_extras(initial_workspace_selection)
-    initial_imported_diff_model_path, initial_imported_diff_config_path, initial_imported_cluster_model_path = detect_local_model_extras(initial_imported_selection)
-    initial_has_diffusion = bool(initial_diff_model_path and initial_diff_config_path)
-    initial_has_cluster = bool(initial_cluster_model_path)
-    initial_input_audio_history = build_input_audio_history_choices()
+    initial_state = build_initial_model_state()
+    initial_input_audio_history = build_input_audio_history_choices(INPUT_AUDIO_HISTORY_DIR)
 
     gr.HTML("""
         <div class="hero">
@@ -383,63 +192,65 @@ with gr.Blocks(
         </div>
     """)
 
-    local_model_enabled = gr.Checkbox(value=initial_local_model_enabled, visible=False)
-    model_source = gr.State(value=initial_model_source)
+    local_model_enabled = gr.Checkbox(value=initial_state.local_model_enabled, visible=False)
+    model_source = gr.State(value=initial_state.model_source)
     enhance = gr.Checkbox(value=False, visible=False)
     only_diffusion = gr.Checkbox(value=False, visible=False)
     with gr.Row():
         with gr.Column(scale=6, elem_classes=["step-card", "card-model"]):
             gr.Markdown("### 1. 模型文件")
-            gr.Markdown("先选训练工作区模型、已导入的模型，或上传单文件推理包。")
+            gr.Markdown("选择训练工作区、已导入模型，或上传单文件包。")
             with gr.Tabs():
                 with gr.TabItem('训练工作区') as workspace_model_tab:
                     gr.Markdown(f"训练工作区目录：`{WORKSPACE_MODEL_ROOT}`")
                     workspace_model_refresh_btn = gr.Button('刷新训练工作区列表', elem_classes=["info-action"], elem_id="infer-workspace-refresh")
                     workspace_model_selection = gr.Dropdown(
                         label='选择训练工作区模型',
-                        choices=initial_workspace_choices,
-                        value=initial_workspace_selection,
+                        choices=initial_state.workspace_choices,
+                        value=initial_state.workspace_selection,
                         interactive=True,
                     )
                     workspace_model_checkpoint_selection = gr.Dropdown(
                         label='选择主模型 G_*.pth',
-                        choices=initial_workspace_checkpoints,
-                        value=initial_workspace_checkpoint_selection,
-                        interactive=bool(initial_workspace_checkpoints),
+                        choices=initial_state.workspace_checkpoints,
+                        value=initial_state.workspace_checkpoint_selection,
+                        interactive=bool(initial_state.workspace_checkpoints),
                     )
                     with gr.Accordion("音质增强和音色增强文件", open=True):
                         with gr.Row():
-                            diff_model_path = gr.Dropdown(label="选择音质增强模型 `.pt`", choices=initial_workspace_diffusion_checkpoints, value=initial_workspace_diffusion_checkpoint_selection, interactive=bool(initial_workspace_diffusion_checkpoints))
-                            diff_config_path = gr.Textbox(label="音质增强配置 `.yaml`", value=initial_workspace_diff_config_path or "", interactive=False)
-                        cluster_model_path = gr.Textbox(label="音色增强索引 `.pkl`", value=initial_workspace_cluster_model_path or "", interactive=False)
-                    workspace_export_bundle_btn = gr.Button("导出当前模型包", elem_classes=["info-action"])
+                            diff_model_path = gr.Dropdown(label="选择音质增强模型 `.pt`", choices=initial_state.workspace_diffusion_checkpoints, value=initial_state.workspace_diffusion_checkpoint_selection, interactive=bool(initial_state.workspace_diffusion_checkpoints))
+                            diff_config_path = gr.Textbox(label="音质增强配置 `.yaml`", value=initial_state.workspace_diff_config_path or "", interactive=False)
+                        cluster_model_path = gr.Textbox(label="音色增强索引 `.pkl`", value=initial_state.workspace_cluster_model_path or "", interactive=False)
                     workspace_export_bundle_status = gr.HTML('<div class="subtle-note">会基于当前选中的 G_*.pth 导出当前模型包；若目录里存在扩散、索引，也会自动一起打包。</div>')
                     workspace_export_bundle_path = gr.Textbox(label="生成路径", value="", interactive=False)
-                    workspace_open_export_location_btn = gr.Button("打开文件位置", interactive=False, elem_classes=["info-action"])
+                    with gr.Row():
+                        workspace_export_bundle_btn = gr.Button("导出当前模型包", elem_classes=["info-action"])
+                        workspace_open_export_location_btn = gr.Button("打开文件位置", interactive=False, elem_classes=["info-action"])
                 with gr.TabItem('已导入的模型') as imported_model_tab:
                     gr.Markdown(f"已导入模型目录：`{IMPORTED_MODEL_ROOT}`")
                     imported_model_refresh_btn = gr.Button('刷新已导入模型列表', elem_classes=["info-action"], elem_id="infer-imported-refresh")
                     imported_model_selection = gr.Dropdown(
                         label='选择已导入的模型',
-                        choices=initial_imported_choices,
-                        value=initial_imported_selection,
+                        choices=initial_state.imported_choices,
+                        value=initial_state.imported_selection,
                         interactive=True,
                     )
                     imported_model_checkpoint_selection = gr.Dropdown(
                         label='选择主模型 G_*.pth',
-                        choices=initial_imported_checkpoints,
-                        value=initial_imported_checkpoint_selection,
-                        interactive=bool(initial_imported_checkpoints),
+                        choices=initial_state.imported_checkpoints,
+                        value=initial_state.imported_checkpoint_selection,
+                        interactive=bool(initial_state.imported_checkpoints),
                     )
                     with gr.Accordion("音质增强和音色增强文件", open=True):
                         with gr.Row():
-                            imported_diff_model_path = gr.Dropdown(label="选择音质增强模型 `.pt`", choices=initial_imported_diffusion_checkpoints, value=initial_imported_diffusion_checkpoint_selection, interactive=bool(initial_imported_diffusion_checkpoints))
-                            imported_diff_config_path = gr.Textbox(label="音质增强配置 `.yaml`", value=initial_imported_diff_config_path or "", interactive=False)
-                        imported_cluster_model_path = gr.Textbox(label="音色增强索引 `.pkl`", value=initial_imported_cluster_model_path or "", interactive=False)
-                    imported_export_bundle_btn = gr.Button("导出当前模型包", elem_classes=["info-action"])
+                            imported_diff_model_path = gr.Dropdown(label="选择音质增强模型 `.pt`", choices=initial_state.imported_diffusion_checkpoints, value=initial_state.imported_diffusion_checkpoint_selection, interactive=bool(initial_state.imported_diffusion_checkpoints))
+                            imported_diff_config_path = gr.Textbox(label="音质增强配置 `.yaml`", value=initial_state.imported_diff_config_path or "", interactive=False)
+                        imported_cluster_model_path = gr.Textbox(label="音色增强索引 `.pkl`", value=initial_state.imported_cluster_model_path or "", interactive=False)
                     imported_export_bundle_status = gr.HTML('<div class="subtle-note">会基于当前选中的 G_*.pth 导出当前模型包；若目录里存在扩散、索引，也会自动一起打包。</div>')
                     imported_export_bundle_path = gr.Textbox(label="生成路径", value="", interactive=False)
-                    imported_open_export_location_btn = gr.Button("打开文件位置", interactive=False, elem_classes=["info-action"])
+                    with gr.Row():
+                        imported_export_bundle_btn = gr.Button("导出当前模型包", elem_classes=["info-action"])
+                        imported_open_export_location_btn = gr.Button("打开文件位置", interactive=False, elem_classes=["info-action"])
                 with gr.TabItem('手动上传') as local_model_tab_upload:
                     model_path = gr.File(label="单文件推理包 `.pth`")
                     config_path = gr.State(value=None)
@@ -447,10 +258,11 @@ with gr.Blocks(
             gr.Markdown("### 2. 加载与确认")
             device = gr.Dropdown(label="推理设备", choices=["Auto", *cuda.keys(), "cpu"], value="Auto")
             with gr.Row():
-                enable_diffusion = gr.Checkbox(label="音质增强", value=initial_has_diffusion, interactive=initial_has_diffusion)
-                enable_cluster = gr.Checkbox(label="音色增强", value=initial_has_cluster, interactive=initial_has_cluster)
-            model_load_button = gr.Button(value="加载模型", variant="primary", elem_classes=["primary-action"])
-            model_unload_button = gr.Button(value="卸载模型", elem_classes=["danger-secondary"], elem_id="infer-unload")
+                enable_diffusion = gr.Checkbox(label="音质增强", value=initial_state.has_diffusion, interactive=initial_state.has_diffusion)
+                enable_cluster = gr.Checkbox(label="音色增强", value=initial_state.has_cluster, interactive=initial_state.has_cluster)
+            with gr.Row():
+                model_load_button = gr.Button(value="加载模型", variant="primary", elem_classes=["primary-action"])
+                model_unload_button = gr.Button(value="卸载模型", elem_classes=["danger-secondary"], elem_id="infer-unload")
             sid = gr.Dropdown(label="当前模型音色")
             gr.Markdown("#### 加载结果")
             sid_output = gr.HTML(render_load_result_html("先加载主模型包。"))
@@ -458,7 +270,7 @@ with gr.Blocks(
     with gr.Row():
         with gr.Column(scale=5, elem_classes=["step-card", "card-params"]):
             gr.Markdown("### 3. 高音质参数")
-            gr.Markdown("通常只需要选质量模式，再改 `变调`。")
+            gr.Markdown("通常只需选质量模式，再改 `变调`。")
             quality_mode = gr.Radio(
                 label="质量模式",
                 choices=["标准高质", "极致质量"],
@@ -467,8 +279,9 @@ with gr.Blocks(
             vc_transform = gr.Number(label="变调（半音）", value=0)
             cluster_ratio = gr.Slider(label="特征检索混合比例", minimum=0, maximum=1, step=0.05, value=QUALITY_MODES["极致质量"]["cluster_ratio"])
             k_step = gr.Slider(label="浅扩散步数", minimum=1, maximum=1000, step=1, value=QUALITY_MODES["极致质量"]["k_step"])
-            best_quality_preset_btn = gr.Button(value="恢复推荐高音质参数", elem_classes=["success-action"], elem_id="infer-preset")
-            export_summary_btn = gr.Button(value="生成运行摘要", elem_classes=["info-action"], elem_id="infer-summary")
+            with gr.Row():
+                best_quality_preset_btn = gr.Button(value="恢复推荐参数", elem_classes=["success-action"], elem_id="infer-preset")
+                export_summary_btn = gr.Button(value="生成运行摘要", elem_classes=["info-action"], elem_id="infer-summary")
             runtime_summary_output = gr.Textbox(
                 label="运行摘要",
                 elem_classes=["compact-status"],
@@ -503,8 +316,36 @@ with gr.Blocks(
             gr.Markdown("#### 处理结果")
             vc_output1 = gr.HTML(render_convert_result_html("等待开始转换。"))
             vc_output2 = gr.Audio(label="输出音频试听", interactive=False, elem_classes=["result-audio"])
-            vc_output3 = gr.File(label="下载转换后的音频 `.flac`", interactive=False)
-            vc_output4 = gr.File(label="下载转换后的音频 `.wav`", interactive=False)
+            with gr.Row():
+                vc_output3 = gr.File(label="下载 `.flac`", interactive=False)
+                vc_output4 = gr.File(label="下载 `.wav`", interactive=False)
+
+    with gr.Row():
+        with gr.Column(scale=12, elem_classes=["step-card", "card-output"]):
+            gr.Markdown("### 5. 文本转语音并转换")
+            gr.Markdown("先用 EdgeTTS 生成语音，再走当前模型转换。")
+            tts_text = gr.Textbox(label="输入文本", lines=4, placeholder="输入想要合成并转换的文本")
+            with gr.Row():
+                tts_lang = gr.Dropdown(
+                    label="语音语言",
+                    choices=["Auto", "zh-CN", "zh-TW", "en-US", "ja-JP", "ko-KR"],
+                    value="Auto",
+                )
+                tts_gender = gr.Dropdown(
+                    label="音色性别",
+                    choices=["女", "男"],
+                    value="女",
+                )
+            with gr.Row():
+                tts_rate = gr.Slider(label="语速", minimum=-1.0, maximum=1.0, step=0.05, value=0.0)
+                tts_volume = gr.Slider(label="音量", minimum=-1.0, maximum=1.0, step=0.05, value=0.0)
+            tts_submit = gr.Button("开始文本转语音并转换", variant="primary", elem_classes=["primary-action"])
+            gr.Markdown("#### 处理结果")
+            tts_output1 = gr.HTML(render_convert_result_html("等待开始转换。"))
+            tts_output2 = gr.Audio(label="输出音频试听", interactive=False, elem_classes=["result-audio"])
+            with gr.Row():
+                tts_output3 = gr.File(label="下载 `.flac`", interactive=False)
+                tts_output4 = gr.File(label="下载 `.wav`", interactive=False)
 
     workspace_model_refresh_btn.click(workspace_model_refresh_fn, outputs=workspace_model_selection, show_api=False).then(
         model_checkpoint_refresh_fn,
@@ -549,6 +390,7 @@ with gr.Blocks(
         show_api=False,
     )
     local_model_tab_upload.select(lambda: False, outputs=local_model_enabled, show_api=False)
+    local_model_tab_upload.select(lambda: "upload", outputs=model_source, show_api=False)
     local_model_tab_upload.select(
         uploaded_bundle_option_refresh_fn,
         [model_path],
@@ -680,15 +522,16 @@ with gr.Blocks(
         show_api=False,
     )
     model_unload_button.click(modelUnload, [], [sid, sid_output], show_api=False)
-    input_history_refresh_btn.click(
-        lambda: gr.update(choices=build_input_audio_history_choices(), interactive=bool(build_input_audio_history_choices())),
-        [],
-        [input_history_selection],
-        show_api=False,
-    )
-    vc_input3.change(handle_uploaded_input_audio, [vc_input3], [input_history_selection, input_audio_info, vc_input_preview], show_api=False)
+    input_history_refresh_btn.click(lambda: refresh_input_audio_history(INPUT_AUDIO_HISTORY_DIR), [], [input_history_selection], show_api=False)
+    vc_input3.change(lambda audio_path: handle_uploaded_input_audio(INPUT_AUDIO_HISTORY_DIR, audio_path), [vc_input3], [input_history_selection, input_audio_info, vc_input_preview], show_api=False)
     input_history_selection.change(handle_selected_history_audio, [input_history_selection], [input_audio_info, vc_input_preview], show_api=False)
     vc_submit.click(quality_vc_fn, [sid, input_history_selection, quality_mode, vc_transform, cluster_ratio, k_step], [vc_output1, vc_output2, vc_output3, vc_output4], show_api=False)
+    tts_submit.click(
+        tts_vc_fn,
+        [sid, tts_text, tts_lang, tts_gender, tts_rate, tts_volume, quality_mode, vc_transform, cluster_ratio, k_step],
+        [tts_output1, tts_output2, tts_output3, tts_output4],
+        show_api=False,
+    )
     quality_mode.change(apply_quality_mode, [quality_mode], [cluster_ratio, k_step], show_api=False)
     best_quality_preset_btn.click(
         lambda: ("极致质量", 0, QUALITY_MODES["极致质量"]["cluster_ratio"], QUALITY_MODES["极致质量"]["k_step"]),
