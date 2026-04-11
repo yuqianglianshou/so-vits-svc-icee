@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -19,8 +20,10 @@ from src.infer_ui.local_models import (
     detect_local_model_extras,
     imported_model_refresh_fn,
     list_local_model_checkpoints,
+    list_local_model_diffusion_checkpoints,
     load_last_selected_infer_model,
     model_checkpoint_refresh_fn,
+    model_diffusion_checkpoint_refresh_fn,
     model_extra_refresh_fn,
     model_option_refresh_fn,
     persist_selected_model,
@@ -48,6 +51,7 @@ apply_gradio_4_api_info_patch()
 CODE_ROOT = Path(__file__).resolve().parent
 ROOT = CODE_ROOT.parent
 INFER_PAGE_CSS = (CODE_ROOT / "infer_ui" / "page.css").read_text(encoding="utf-8")
+INPUT_AUDIO_HISTORY_DIR = ROOT / "inference_data" / "inputs" / "history"
 
 
 def find_available_port(default_port: int, max_tries: int = 20):
@@ -117,7 +121,7 @@ def load_model_from_paths(model_path, config_path, cluster_model_path, device, e
             traceback.print_exc()
         raise gr.Error(e)
 
-def modelAnalysis(model_path, config_path, cluster_model_path, device, enhance, diff_model_path, diff_config_path, only_diffusion, local_model_enabled, model_source, workspace_model_selection, workspace_model_checkpoint_selection, imported_model_selection, imported_model_checkpoint_selection, enable_diffusion, enable_cluster):
+def modelAnalysis(model_path, config_path, cluster_model_path, device, enhance, diff_model_path, diff_config_path, only_diffusion, local_model_enabled, model_source, workspace_model_selection, workspace_model_checkpoint_selection, workspace_diffusion_checkpoint_selection, imported_model_selection, imported_model_checkpoint_selection, imported_diffusion_checkpoint_selection, enable_diffusion, enable_cluster):
     """统一处理上传模式和本地模式下的模型加载入口。"""
     try:
         model_path, config_path, cluster_model_path, diff_model_path, diff_config_path = resolve_model_inputs(
@@ -130,8 +134,10 @@ def modelAnalysis(model_path, config_path, cluster_model_path, device, enhance, 
             model_source,
             workspace_model_selection,
             workspace_model_checkpoint_selection,
+            workspace_diffusion_checkpoint_selection,
             imported_model_selection,
             imported_model_checkpoint_selection,
+            imported_diffusion_checkpoint_selection,
             enable_diffusion=enable_diffusion,
             enable_cluster=enable_cluster,
         )
@@ -181,6 +187,58 @@ def quality_vc_fn(sid, input_audio, quality_mode, vc_transform, cluster_ratio, k
     """推理页主入口：按当前高质量预设执行一次转换。"""
     global model
     return quality_convert(model, sid, input_audio, quality_mode, vc_transform, cluster_ratio, k_step, BEST_QUALITY_PRESET)
+
+
+def list_input_audio_history():
+    INPUT_AUDIO_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+    audio_exts = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac"}
+    files = [
+        path.as_posix()
+        for path in INPUT_AUDIO_HISTORY_DIR.iterdir()
+        if path.is_file() and path.suffix.lower() in audio_exts and not path.name.startswith(".")
+    ]
+    files.sort(key=lambda item: Path(item).stat().st_mtime, reverse=True)
+    return files
+
+
+def build_input_audio_history_choices():
+    return [(Path(path).name, path) for path in list_input_audio_history()]
+
+
+def save_input_audio_to_history(audio_path):
+    if not audio_path:
+        return None
+    source = Path(audio_path)
+    if not source.exists():
+        return None
+    INPUT_AUDIO_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+    target = INPUT_AUDIO_HISTORY_DIR / source.name
+    stem = source.stem
+    suffix = source.suffix
+    index = 2
+    while target.exists() and target.resolve() != source.resolve():
+        target = INPUT_AUDIO_HISTORY_DIR / f"{stem}_{index}{suffix}"
+        index += 1
+    if target.resolve() != source.resolve():
+        shutil.copy2(source, target)
+    return target.as_posix()
+
+
+def handle_uploaded_input_audio(audio_path):
+    saved_path = save_input_audio_to_history(audio_path)
+    choices = list_input_audio_history()
+    info_html = describe_input_audio(saved_path)
+    preview_value = preview_input_audio(saved_path)
+    return (
+        gr.update(choices=choices, value=saved_path, interactive=bool(choices)),
+        info_html,
+        preview_value,
+    )
+
+
+def handle_selected_history_audio(audio_path):
+    resolved_path = audio_path or None
+    return describe_input_audio(resolved_path), preview_input_audio(resolved_path)
 
 
 def describe_input_audio(audio_path):
@@ -306,6 +364,10 @@ with gr.Blocks(
     initial_imported_checkpoints = list_local_model_checkpoints(initial_imported_selection) if initial_imported_selection else []
     initial_workspace_checkpoint_selection = initial_workspace_checkpoints[-1] if initial_workspace_checkpoints else None
     initial_imported_checkpoint_selection = initial_imported_checkpoints[-1] if initial_imported_checkpoints else None
+    initial_workspace_diffusion_checkpoints = list_local_model_diffusion_checkpoints(initial_workspace_selection) if initial_workspace_selection else []
+    initial_imported_diffusion_checkpoints = list_local_model_diffusion_checkpoints(initial_imported_selection) if initial_imported_selection else []
+    initial_workspace_diffusion_checkpoint_selection = initial_workspace_diffusion_checkpoints[-1] if initial_workspace_diffusion_checkpoints else None
+    initial_imported_diffusion_checkpoint_selection = initial_imported_diffusion_checkpoints[-1] if initial_imported_diffusion_checkpoints else None
     initial_local_model_enabled = bool(initial_workspace_selection or initial_imported_selection)
     initial_selected_model_dir = initial_workspace_selection if initial_model_source == "workspace" else initial_imported_selection
     initial_diff_model_path, initial_diff_config_path, initial_cluster_model_path = detect_local_model_extras(initial_selected_model_dir)
@@ -313,6 +375,7 @@ with gr.Blocks(
     initial_imported_diff_model_path, initial_imported_diff_config_path, initial_imported_cluster_model_path = detect_local_model_extras(initial_imported_selection)
     initial_has_diffusion = bool(initial_diff_model_path and initial_diff_config_path)
     initial_has_cluster = bool(initial_cluster_model_path)
+    initial_input_audio_history = build_input_audio_history_choices()
 
     gr.HTML("""
         <div class="hero">
@@ -346,7 +409,7 @@ with gr.Blocks(
                     )
                     with gr.Accordion("音质增强和音色增强文件", open=True):
                         with gr.Row():
-                            diff_model_path = gr.Textbox(label="音质增强模型 `.pt`", value=initial_workspace_diff_model_path or "", interactive=False)
+                            diff_model_path = gr.Dropdown(label="选择音质增强模型 `.pt`", choices=initial_workspace_diffusion_checkpoints, value=initial_workspace_diffusion_checkpoint_selection, interactive=bool(initial_workspace_diffusion_checkpoints))
                             diff_config_path = gr.Textbox(label="音质增强配置 `.yaml`", value=initial_workspace_diff_config_path or "", interactive=False)
                         cluster_model_path = gr.Textbox(label="音色增强索引 `.pkl`", value=initial_workspace_cluster_model_path or "", interactive=False)
                     workspace_export_bundle_btn = gr.Button("导出当前模型包", elem_classes=["info-action"])
@@ -370,7 +433,7 @@ with gr.Blocks(
                     )
                     with gr.Accordion("音质增强和音色增强文件", open=True):
                         with gr.Row():
-                            imported_diff_model_path = gr.Textbox(label="音质增强模型 `.pt`", value=initial_imported_diff_model_path or "", interactive=False)
+                            imported_diff_model_path = gr.Dropdown(label="选择音质增强模型 `.pt`", choices=initial_imported_diffusion_checkpoints, value=initial_imported_diffusion_checkpoint_selection, interactive=bool(initial_imported_diffusion_checkpoints))
                             imported_diff_config_path = gr.Textbox(label="音质增强配置 `.yaml`", value=initial_imported_diff_config_path or "", interactive=False)
                         imported_cluster_model_path = gr.Textbox(label="音色增强索引 `.pkl`", value=initial_imported_cluster_model_path or "", interactive=False)
                     imported_export_bundle_btn = gr.Button("导出当前模型包", elem_classes=["info-action"])
@@ -415,12 +478,20 @@ with gr.Blocks(
                 gr.Markdown("""
                 - `标准高质`：先试听
                 - `极致质量`：更慢但更接近上限
-                - 输出固定为 `flac`
+                - 输出会同时提供 `flac / wav` 下载
                 - F0 预测固定为 `rmvpe`
                 - 其余参数已按高质量预设固定
                 """)
         with gr.Column(scale=6, elem_classes=["step-card", "card-output"]):
             gr.Markdown("### 4. 上传音频并转换")
+            with gr.Row():
+                input_history_selection = gr.Dropdown(
+                    label="之前上传过的音频",
+                    choices=initial_input_audio_history,
+                    value=None,
+                    interactive=bool(initial_input_audio_history),
+                )
+                input_history_refresh_btn = gr.Button("刷新列表", elem_classes=["info-action"])
             vc_input3 = gr.File(
                 label="选择输入音频文件",
                 file_types=["audio"],
@@ -431,12 +502,19 @@ with gr.Blocks(
             vc_submit = gr.Button("开始转换", variant="primary", elem_classes=["primary-action"])
             gr.Markdown("#### 处理结果")
             vc_output1 = gr.HTML(render_convert_result_html("等待开始转换。"))
-            vc_output2 = gr.Audio(label="输出音频", interactive=False, elem_classes=["result-audio"])
+            vc_output2 = gr.Audio(label="输出音频试听", interactive=False, elem_classes=["result-audio"])
+            vc_output3 = gr.File(label="下载转换后的音频 `.flac`", interactive=False)
+            vc_output4 = gr.File(label="下载转换后的音频 `.wav`", interactive=False)
 
     workspace_model_refresh_btn.click(workspace_model_refresh_fn, outputs=workspace_model_selection, show_api=False).then(
         model_checkpoint_refresh_fn,
         [workspace_model_selection],
         [workspace_model_checkpoint_selection],
+        show_api=False,
+    ).then(
+        model_diffusion_checkpoint_refresh_fn,
+        [workspace_model_selection],
+        [diff_model_path],
         show_api=False,
     ).then(
         model_option_refresh_fn,
@@ -453,6 +531,11 @@ with gr.Blocks(
         model_checkpoint_refresh_fn,
         [imported_model_selection],
         [imported_model_checkpoint_selection],
+        show_api=False,
+    ).then(
+        model_diffusion_checkpoint_refresh_fn,
+        [imported_model_selection],
+        [imported_diff_model_path],
         show_api=False,
     ).then(
         model_option_refresh_fn,
@@ -519,6 +602,12 @@ with gr.Blocks(
         show_api=False,
     )
     workspace_model_selection.change(
+        model_diffusion_checkpoint_refresh_fn,
+        [workspace_model_selection],
+        [diff_model_path],
+        show_api=False,
+    )
+    workspace_model_selection.change(
         model_option_refresh_fn,
         [workspace_model_selection],
         [enable_diffusion, enable_cluster],
@@ -540,6 +629,12 @@ with gr.Blocks(
         model_checkpoint_refresh_fn,
         [imported_model_selection],
         [imported_model_checkpoint_selection],
+        show_api=False,
+    )
+    imported_model_selection.change(
+        model_diffusion_checkpoint_refresh_fn,
+        [imported_model_selection],
+        [imported_diff_model_path],
         show_api=False,
     )
     imported_model_selection.change(
@@ -580,14 +675,20 @@ with gr.Blocks(
     )
     model_load_button.click(
         modelAnalysis,
-        [model_path, config_path, cluster_model_path, device, enhance, diff_model_path, diff_config_path, only_diffusion, local_model_enabled, model_source, workspace_model_selection, workspace_model_checkpoint_selection, imported_model_selection, imported_model_checkpoint_selection, enable_diffusion, enable_cluster],
+        [model_path, config_path, cluster_model_path, device, enhance, diff_model_path, diff_config_path, only_diffusion, local_model_enabled, model_source, workspace_model_selection, workspace_model_checkpoint_selection, diff_model_path, imported_model_selection, imported_model_checkpoint_selection, imported_diff_model_path, enable_diffusion, enable_cluster],
         [sid, sid_output],
         show_api=False,
     )
     model_unload_button.click(modelUnload, [], [sid, sid_output], show_api=False)
-    vc_input3.change(describe_input_audio, [vc_input3], [input_audio_info], show_api=False)
-    vc_input3.change(preview_input_audio, [vc_input3], [vc_input_preview], show_api=False)
-    vc_submit.click(quality_vc_fn, [sid, vc_input3, quality_mode, vc_transform, cluster_ratio, k_step], [vc_output1, vc_output2], show_api=False)
+    input_history_refresh_btn.click(
+        lambda: gr.update(choices=build_input_audio_history_choices(), interactive=bool(build_input_audio_history_choices())),
+        [],
+        [input_history_selection],
+        show_api=False,
+    )
+    vc_input3.change(handle_uploaded_input_audio, [vc_input3], [input_history_selection, input_audio_info, vc_input_preview], show_api=False)
+    input_history_selection.change(handle_selected_history_audio, [input_history_selection], [input_audio_info, vc_input_preview], show_api=False)
+    vc_submit.click(quality_vc_fn, [sid, input_history_selection, quality_mode, vc_transform, cluster_ratio, k_step], [vc_output1, vc_output2, vc_output3, vc_output4], show_api=False)
     quality_mode.change(apply_quality_mode, [quality_mode], [cluster_ratio, k_step], show_api=False)
     best_quality_preset_btn.click(
         lambda: ("极致质量", 0, QUALITY_MODES["极致质量"]["cluster_ratio"], QUALITY_MODES["极致质量"]["k_step"]),

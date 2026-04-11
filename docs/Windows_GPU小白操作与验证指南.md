@@ -13,6 +13,12 @@ python3 scripts/verify_app_smoke.py
 
 这份指南用于你在 Windows + NVIDIA GPU 机器上验证和使用本项目，目标是尽量少命令、可视化操作优先。
 
+补充说明：
+
+1. 当前仓库已经真机验证通过的是 `Windows + NVIDIA GPU`
+2. `Linux + NVIDIA GPU` 按当前代码审查结果理论上大概率可行，但不等于已经完成真机闭环验证
+3. `macOS` 当前更适合做推理或页面级尝试，不建议把它当成训练平台
+
 ## 1. 先确认硬件与软件
 
 1. 系统：Windows 10/11 64 位  
@@ -57,6 +63,12 @@ python -c "import torch; print(torch.__version__); print(torch.cuda.is_available
 ```
 
 如果输出中的 `torch.cuda.is_available()` 为 `True`，说明当前这台 Windows + NVIDIA 机器已经可以进入训练阶段。
+
+注意：
+
+1. 主模型训练需要 `NVIDIA GPU + CUDA`
+2. 扩散训练当前也应视为 `NVIDIA GPU + CUDA` 场景
+3. 主模型训练支持单机多卡；扩散训练当前按单卡设计
 
 ## 3. 准备必要模型文件
 

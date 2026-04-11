@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import pickle
+import sys
 import time
 from pathlib import Path
 
@@ -117,6 +118,25 @@ def split_list_by_n(list_collection, n, pre=0):
         yield list_collection[i-pre if i-pre>=0 else i: i + n]
 
 
+def search_feature_index_numpy(big_npy, feat_np, top_k):
+    """在不稳定环境下使用 numpy 做检索兜底，避免 faiss 原生层直接崩溃。"""
+    big_npy = np.ascontiguousarray(big_npy, dtype=np.float32)
+    feat_np = np.ascontiguousarray(feat_np, dtype=np.float32)
+    top_k = max(1, min(int(top_k), big_npy.shape[0]))
+
+    big_sq = np.sum(np.square(big_npy), axis=1, keepdims=True).T
+    feat_sq = np.sum(np.square(feat_np), axis=1, keepdims=True)
+    distances = feat_sq + big_sq - 2.0 * np.matmul(feat_np, big_npy.T)
+    distances = np.maximum(distances, 1e-6)
+
+    ix = np.argpartition(distances, kth=top_k - 1, axis=1)[:, :top_k]
+    score = np.take_along_axis(distances, ix, axis=1)
+    order = np.argsort(score, axis=1)
+    ix = np.take_along_axis(ix, order, axis=1)
+    score = np.take_along_axis(score, order, axis=1)
+    return score, ix
+
+
 class F0FilterException(Exception):
     pass
 
@@ -189,6 +209,9 @@ class Svc(object):
         if self.nsf_hifigan_enhance:
             from modules.enhancer import Enhancer
             self.enhancer = Enhancer('nsf-hifigan', str(get_nsf_hifigan_model_path()),device=self.dev)
+
+    def _should_use_numpy_feature_retrieval(self):
+        return self.dev.type == "cpu" and sys.platform == "darwin"
             
     def load_model(self):
         # get model configuration
@@ -241,19 +264,34 @@ class Svc(object):
         if cluster_infer_ratio !=0:
             if self.feature_retrieval:
                 speaker_id = self._resolve_speaker_id(speaker)
-                feature_index = self.cluster_model[speaker_id]
-                feat_np = np.ascontiguousarray(c.transpose(0,1).cpu().numpy())
-                if self.big_npy is None or self.now_spk_id != speaker_id:
-                   self.big_npy = feature_index.reconstruct_n(0, feature_index.ntotal)
-                   self.now_spk_id = speaker_id
-                print("starting feature retrieval...")
-                score, ix = feature_index.search(feat_np, k=8)
-                weight = np.square(1 / score)
-                weight /= weight.sum(axis=1, keepdims=True)
-                npy = np.sum(self.big_npy[ix] * np.expand_dims(weight, axis=2), axis=1)
-                c = cluster_infer_ratio * npy + (1 - cluster_infer_ratio) * feat_np
-                c = torch.FloatTensor(c).to(self.dev).transpose(0,1)
-                print("end feature retrieval...")
+                feature_index = self.cluster_model.get(speaker_id)
+                feature_count = int(getattr(feature_index, "ntotal", 0)) if feature_index is not None else 0
+                if feature_index is None or feature_count <= 0:
+                    print("feature retrieval skipped: invalid or empty index")
+                else:
+                    feat_np = np.ascontiguousarray(c.transpose(0,1).cpu().numpy().astype(np.float32))
+                    top_k = min(8, feature_count)
+                    if top_k <= 0:
+                        print("feature retrieval skipped: no available neighbors")
+                    else:
+                        try:
+                            if self.big_npy is None or self.now_spk_id != speaker_id:
+                                self.big_npy = feature_index.reconstruct_n(0, feature_count)
+                                self.now_spk_id = speaker_id
+                            print("starting feature retrieval...")
+                            if self._should_use_numpy_feature_retrieval():
+                                score, ix = search_feature_index_numpy(self.big_npy, feat_np, top_k)
+                            else:
+                                score, ix = feature_index.search(feat_np, k=top_k)
+                            score = np.maximum(score, 1e-6)
+                            weight = np.square(1.0 / score)
+                            weight /= weight.sum(axis=1, keepdims=True)
+                            npy = np.sum(self.big_npy[ix] * np.expand_dims(weight, axis=2), axis=1)
+                            c = cluster_infer_ratio * npy + (1 - cluster_infer_ratio) * feat_np
+                            c = torch.FloatTensor(c).to(self.dev).transpose(0,1)
+                            print("end feature retrieval...")
+                        except Exception as exc:
+                            print(f"feature retrieval failed, fallback to base features: {exc}")
             else:
                 cluster_c = cluster.get_cluster_center_result(self.cluster_model, c.cpu().numpy().T, speaker).T
                 cluster_c = torch.FloatTensor(cluster_c).to(self.dev)

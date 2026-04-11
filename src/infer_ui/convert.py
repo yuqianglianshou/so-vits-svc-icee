@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import librosa
@@ -10,12 +11,56 @@ import numpy as np
 import soundfile
 
 from src.infer_ui.runtime import get_model_device_name
-from src.infer_ui.text import build_runtime_summary, render_convert_result_html
+from src.infer_ui.text import render_convert_result_html
+
+
+def write_output_audio(output_file: str, audio, sample_rate: int, output_format: str):
+    output_format = (output_format or "flac").lower()
+    if output_format in {"flac", "wav"}:
+        soundfile.write(output_file, audio, sample_rate, format=output_format)
+        return output_file
+    if output_format == "mp3":
+        wav_temp_path = str(Path(output_file).with_suffix(".mp3_tmp.wav"))
+        soundfile.write(wav_temp_path, audio, sample_rate, format="wav")
+        try:
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    wav_temp_path,
+                    "-codec:a",
+                    "libmp3lame",
+                    "-q:a",
+                    "2",
+                    output_file,
+                ],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except FileNotFoundError as exc:
+            raise RuntimeError("当前环境缺少 ffmpeg，无法导出 mp3。") from exc
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError("ffmpeg 导出 mp3 失败。") from exc
+        finally:
+            if os.path.exists(wav_temp_path):
+                os.remove(wav_temp_path)
+        return output_file
+    raise ValueError(f"不支持的输出格式：{output_format}")
+
+
+def write_preview_and_download_audio(base_output_stem: str, audio, sample_rate: int):
+    """固定生成 flac 试听文件，并同时提供 flac / wav 两种下载文件。"""
+    flac_file = f"{base_output_stem}.flac"
+    wav_file = f"{base_output_stem}.wav"
+    write_output_audio(flac_file, audio, sample_rate, "flac")
+    write_output_audio(wav_file, audio, sample_rate, "wav")
+    return flac_file, flac_file, wav_file
 
 
 def vc_infer_with_model(
     model,
-    output_format,
     sid,
     audio_path,
     truncated_basename,
@@ -63,17 +108,14 @@ def vc_infer_with_model(
         diffusion_tag = "sovdiff"
     if model.only_diffusion:
         diffusion_tag = "diff"
-    output_file_name = f"result_{truncated_basename}_{sid}_{key}{cluster}{diffusion_tag}.{output_format}"
-    output_file = os.path.join("inference_data/outputs", output_file_name)
-    soundfile.write(output_file, audio, model.target_sample, format=output_format)
-    return output_file
+    output_stem = os.path.join("inference_data/outputs", f"result_{truncated_basename}_{sid}_{key}{cluster}{diffusion_tag}")
+    return write_preview_and_download_audio(output_stem, audio, model.target_sample)
 
 
 def convert_uploaded_audio(
     model,
     sid,
     input_audio,
-    output_format,
     vc_transform,
     auto_f0,
     cluster_ratio,
@@ -91,9 +133,9 @@ def convert_uploaded_audio(
     loudness_envelope_adjustment,
 ):
     if input_audio is None:
-        return "You need to upload an audio", None
+        return "You need to upload an audio", None, None, None
     if model is None:
-        return "You need to upload an model", None
+        return "You need to upload an model", None, None, None
     if getattr(model, "cluster_model", None) is None and model.feature_retrieval is False and cluster_ratio != 0:
         cluster_ratio = 0
 
@@ -102,32 +144,36 @@ def convert_uploaded_audio(
         audio = (audio / np.iinfo(audio.dtype).max).astype(np.float32)
     if len(audio.shape) > 1:
         audio = librosa.to_mono(audio.transpose(1, 0))
-    truncated_basename = Path(input_audio).stem[:-6]
-    processed_audio = os.path.join("inference_data/inputs", f"{truncated_basename}.wav")
-    soundfile.write(processed_audio, audio, sampling_rate, format="wav")
-    output_file = vc_infer_with_model(
-        model,
-        output_format,
-        sid,
-        processed_audio,
-        truncated_basename,
-        vc_transform,
-        auto_f0,
-        cluster_ratio,
-        slice_db,
-        noise_scale,
-        pad_seconds,
-        cl_num,
-        lg_num,
-        lgr_num,
-        f0_predictor,
-        enhancer_adaptive_key,
-        cr_threshold,
-        k_step,
-        second_encoding,
-        loudness_envelope_adjustment,
-    )
-    return "Success", output_file
+    truncated_basename = Path(input_audio).stem
+    temp_input = tempfile.NamedTemporaryFile(prefix="infer_input_", suffix=".wav", delete=False)
+    temp_input.close()
+    try:
+        soundfile.write(temp_input.name, audio, sampling_rate, format="wav")
+        preview_file, flac_download_file, wav_download_file = vc_infer_with_model(
+            model,
+            sid,
+            temp_input.name,
+            truncated_basename,
+            vc_transform,
+            auto_f0,
+            cluster_ratio,
+            slice_db,
+            noise_scale,
+            pad_seconds,
+            cl_num,
+            lg_num,
+            lgr_num,
+            f0_predictor,
+            enhancer_adaptive_key,
+            cr_threshold,
+            k_step,
+            second_encoding,
+            loudness_envelope_adjustment,
+        )
+        return "Success", preview_file, flac_download_file, wav_download_file
+    finally:
+        if os.path.exists(temp_input.name):
+            os.remove(temp_input.name)
 
 
 def convert_tts_audio(
@@ -138,7 +184,6 @@ def convert_tts_audio(
     rate,
     volume,
     sid,
-    output_format,
     vc_transform,
     auto_f0,
     cluster_ratio,
@@ -156,7 +201,7 @@ def convert_tts_audio(
     loudness_envelope_adjustment,
 ):
     if model is None:
-        return "You need to upload an model", None
+        return "You need to upload an model", None, None, None
     if getattr(model, "cluster_model", None) is None and model.feature_retrieval is False and cluster_ratio != 0:
         cluster_ratio = 0
 
@@ -171,9 +216,8 @@ def convert_tts_audio(
     y, sr = librosa.load("tts.wav")
     resampled_y = librosa.resample(y, orig_sr=sr, target_sr=target_sr)
     soundfile.write("tts.wav", resampled_y, target_sr, subtype="PCM_16")
-    output_file_path = vc_infer_with_model(
+    preview_file, flac_download_file, wav_download_file = vc_infer_with_model(
         model,
-        output_format,
         sid,
         "tts.wav",
         "tts",
@@ -194,25 +238,23 @@ def convert_tts_audio(
         loudness_envelope_adjustment,
     )
     os.remove("tts.wav")
-    return "Success", output_file_path
+    return "Success", preview_file, flac_download_file, wav_download_file
 
 
 def quality_convert(model, sid, input_audio, quality_mode, vc_transform, cluster_ratio, k_step, best_quality_preset):
-    preflight = ""
+    warnings = []
     if model is not None:
         if not model.shallow_diffusion:
-            preflight += "提醒：当前没有加载音质增强模型，转换可以继续，但不会是最佳音质。\n"
+            warnings.append("未加载音质增强")
         if getattr(model, "cluster_model", None) is None:
-            preflight += "提醒：当前没有加载音色增强文件，音色相似度可能低于最佳状态。\n"
+            warnings.append("未加载音色增强")
             if cluster_ratio != 0:
-                preflight += "提醒：当前未加载聚类/特征检索模型，已自动将特征检索混合比例改为 0。\n"
                 cluster_ratio = 0
 
-    msg, audio = convert_uploaded_audio(
+    msg, preview_audio, flac_download_audio, wav_download_audio = convert_uploaded_audio(
         model,
         sid,
         input_audio,
-        best_quality_preset["output_format"],
         vc_transform,
         best_quality_preset["auto_predict_f0"],
         cluster_ratio,
@@ -229,18 +271,15 @@ def quality_convert(model, sid, input_audio, quality_mode, vc_transform, cluster
         best_quality_preset["second_encoding"],
         best_quality_preset["loudness_envelope_adjustment"],
     )
-    if audio is None:
-        return render_convert_result_html(preflight + str(msg)), audio
+    if preview_audio is None:
+        return render_convert_result_html(str(msg)), preview_audio, flac_download_audio, wav_download_audio
 
-    runtime_summary = build_runtime_summary(
-        get_model_device_name(model),
-        sid,
-        quality_mode,
-        vc_transform,
-        cluster_ratio,
-        k_step,
-        bool(getattr(model, "shallow_diffusion", False) or getattr(model, "only_diffusion", False)),
-        getattr(model, "cluster_model", None) is not None,
-    )
-    result_msg = f"{preflight}转换完成\n{runtime_summary}\n输出文件：{audio}"
-    return render_convert_result_html(result_msg), audio
+    summary_lines = [
+        "转换完成",
+        f"设备：{get_model_device_name(model)}",
+        f"目标音色：{sid}",
+        f"变调：{vc_transform}",
+    ]
+    if warnings:
+        summary_lines.append("当前链路：" + "、".join(warnings))
+    return render_convert_result_html("\n".join(summary_lines)), preview_audio, flac_download_audio, wav_download_audio

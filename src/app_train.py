@@ -161,8 +161,9 @@ TASK_LIFECYCLE_CACHE = {
 
 DEFAULT_PREPROCESS_WORKERS = 6
 DEFAULT_SPEECH_ENCODER = "vec768l12"
-DEFAULT_BATCH_SIZE = json.loads((ROOT / "configs_template" / "config_template.json").read_text(encoding="utf-8"))["train"]["batch_size"]
-CONFIG_TEMPLATE_PATH = ROOT / "configs_template" / "config_template.json"
+DEFAULT_BATCH_SIZE = json.loads((ROOT / "config_templates" / "config_template.json").read_text(encoding="utf-8"))["train"]["batch_size"]
+CONFIG_TEMPLATE_PATH = ROOT / "config_templates" / "config_template.json"
+DIFFUSION_TEMPLATE_PATH = ROOT / "config_templates" / "diffusion_template.yaml"
 
 TASK_STAGE_LABELS = {
     "resample": "第 1 步：重采样",
@@ -851,6 +852,7 @@ def persist_batch_size(model_name: str, batch_size: int | float | None):
         model_name,
         batch_size,
         config_template_path=CONFIG_TEMPLATE_PATH,
+        diffusion_template_path=DIFFUSION_TEMPLATE_PATH,
         default_batch_size=DEFAULT_BATCH_SIZE,
     )
 

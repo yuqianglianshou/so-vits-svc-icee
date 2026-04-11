@@ -49,7 +49,7 @@ def build_loaded_model_result(model, cluster_model_path, diff_model_path):
         quality_hint = "当前缺少音色增强文件，音色相似度还有提升空间。"
     summary = (
         f"设备：{get_model_device_name(model)}\n"
-        "So-VITS：已加载\n"
+        "主模型：已加载\n"
         f"音质增强：{diffusion_status}\n"
         f"音色增强：{cluster_status}\n"
         f"当前模型音色：{primary_spk}\n"

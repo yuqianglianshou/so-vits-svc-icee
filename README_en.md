@@ -47,6 +47,23 @@ This project serves as a framework only and does not possess speech synthesis fu
 
 The singing voice conversion model uses SoftVC content encoder to extract speech features from the source audio. These feature vectors are directly fed into VITS without the need for conversion to a text-based intermediate representation. As a result, the pitch and intonations of the original audio are preserved. Meanwhile, the vocoder was replaced with [NSF HiFiGAN](https://github.com/openvpi/DiffSinger/tree/refactor/modules/nsf_hifigan) to solve the problem of sound interruption.
 
+## 🖥️ Platform and Hardware Notes
+
+The most reliable current statement is:
+
+- Verified:
+  - `Windows 11 + NVIDIA GPU (12GB)` works for both training and inference
+- Theoretically viable:
+  - `Linux + NVIDIA GPU` should be workable for the main-model training flow, inference, and app entrypoints
+- Actual code-level constraints today:
+  - main-model training requires `NVIDIA GPU + CUDA`
+  - diffusion training should also be treated as an `NVIDIA GPU + CUDA` workflow
+  - main-model training supports single-node multi-GPU
+  - diffusion training is currently designed as single-GPU
+  - `macOS` should not be advertised as a training platform; it is more appropriate for inference attempts or non-training checks
+
+So if you plan to use this repository outside `Windows + NVIDIA GPU`, treat it as "reviewed in code and theoretically viable", not "fully hardware-validated by the repository".
+
 ### 🆕 4.1-Stable Version Update Content
 
 - Feature input is changed to the 12th Layer of [Content Vec](https://github.com/auspicious3000/contentvec) Transformer output, And compatible with 4.0 branches.
@@ -112,6 +129,12 @@ pip install --upgrade pip setuptools wheel
 pip install -U torch torchaudio --index-url https://download.pytorch.org/whl/cu118
 pip install -r requirements.txt
 ```
+
+Notes:
+
+- `Windows + NVIDIA GPU` is the primary validated platform right now
+- `Linux + NVIDIA GPU` should use the same CUDA-enabled PyTorch approach
+- `macOS` may use CPU builds of `torch / torchaudio` for app and inference experiments, but should not be treated as a training platform
 
 ### 2. Train models
 

@@ -58,17 +58,16 @@ def test(args, model, vocoder, loader_test, saver):
             print('RTF: {}  | {} / {}'.format(rtf, run_time, song_time))
             rtf_all.append(rtf)
            
-            # loss
-            for i in range(args.train.batch_size):
-                loss = model(
-                    data['units'], 
-                    data['f0'], 
-                    data['volume'], 
-                    data['spk_id'], 
-                    gt_spec=data['mel'],
-                    infer=False,
-                    k_step=model.k_step_max)
-                test_loss += loss.item()
+            # validation loss
+            loss = model(
+                data['units'],
+                data['f0'],
+                data['volume'],
+                data['spk_id'],
+                gt_spec=data['mel'],
+                infer=False,
+                k_step=model.k_step_max)
+            test_loss += loss.item()
             
             # log mel
             saver.log_spec(f"{speaker}_{fn}.wav", data['mel'], mel)
@@ -81,7 +80,6 @@ def test(args, model, vocoder, loader_test, saver):
             audio = torch.from_numpy(audio).unsqueeze(0).to(signal)
             saver.log_audio({f"{speaker}_{fn}_gt.wav": audio,f"{speaker}_{fn}_pred.wav": signal})
     # report
-    test_loss /= args.train.batch_size
     test_loss /= num_batches 
     
     # check
@@ -104,6 +102,7 @@ def train(args, initial_global_step, model, optimizer, scheduler, vocoder, loade
     model.train()
     saver.log_info('======= start training =======')
     scaler = GradScaler()
+    autocast_device_type = utils.resolve_autocast_device_type(args.device)
     if args.train.amp_dtype == 'fp32':
         dtype = torch.float32
     elif args.train.amp_dtype == 'fp16':
@@ -128,7 +127,7 @@ def train(args, initial_global_step, model, optimizer, scheduler, vocoder, loade
                 loss = model(data['units'].float(), data['f0'], data['volume'], data['spk_id'], 
                                 aug_shift = data['aug_shift'], gt_spec=data['mel'].float(), infer=False, k_step=model.k_step_max)
             else:
-                with autocast(device_type=args.device, dtype=dtype):
+                with autocast(device_type=autocast_device_type, dtype=dtype):
                     loss = model(data['units'], data['f0'], data['volume'], data['spk_id'], 
                                     aug_shift = data['aug_shift'], gt_spec=data['mel'], infer=False, k_step=model.k_step_max)
             

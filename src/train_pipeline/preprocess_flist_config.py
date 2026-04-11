@@ -78,7 +78,7 @@ if __name__ == "__main__":
         resolved_speech_encoder = "vec768l12"
         speech_encoder_spec = utils.get_speech_encoder_spec(resolved_speech_encoder)
     
-    with open("configs_template/config_template.json", encoding="utf-8") as template_file:
+    with open("config_templates/config_template.json", encoding="utf-8") as template_file:
         config_template = json.load(template_file)
     train = []
     val = []
@@ -147,7 +147,7 @@ if __name__ == "__main__":
     os.makedirs(os.path.dirname(args.diff_config_out), exist_ok=True)
     os.makedirs(args.exp_dir, exist_ok=True)
 
-    d_config_template = du.load_config("configs_template/diffusion_template.yaml")
+    d_config_template = du.load_config("config_templates/diffusion_template.yaml")
     d_config_template["model"]["n_spk"] = spk_id
     d_config_template["data"]["encoder"] = resolved_speech_encoder
     d_config_template["data"]["training_files"] = args.train_list
@@ -178,6 +178,9 @@ if __name__ == "__main__":
         config_template["model"]["upsample_initial_channel"] = 400
         config_template["model"]["use_depthwise_conv"] = True
         config_template["model"]["flow_share_parameter"] = True
+
+    # 扩散训练默认继承主模型当前 batch size，避免页面只改了主模型而扩散仍吃旧值。
+    d_config_template.setdefault("train", {})["batch_size"] = config_template.get("train", {}).get("batch_size", d_config_template.get("train", {}).get("batch_size"))
 
     logger.info("Writing to " + args.config_out)
     with open(args.config_out, "w") as f:

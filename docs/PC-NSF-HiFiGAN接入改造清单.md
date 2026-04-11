@@ -64,8 +64,8 @@
 ### 2. 配置枚举与模板字段扩展
 
 相关文件：
-- [configs_template/config_template.json](/Volumes/D/MyGitHub/so-vits-svc-icee/configs_template/config_template.json)
-- [configs_template/diffusion_template.yaml](/Volumes/D/MyGitHub/so-vits-svc-icee/configs_template/diffusion_template.yaml)
+- [config_templates/config_template.json](/Volumes/D/MyGitHub/so-vits-svc-icee/config_templates/config_template.json)
+- [config_templates/diffusion_template.yaml](/Volumes/D/MyGitHub/so-vits-svc-icee/config_templates/diffusion_template.yaml)
 - [train_pipeline/preprocess_flist_config.py](/Volumes/D/MyGitHub/so-vits-svc-icee/train_pipeline/preprocess_flist_config.py)
 
 当前现状：
@@ -232,7 +232,7 @@
 
 相关文件：
 - [models.py](/Volumes/D/MyGitHub/so-vits-svc-icee/src/models.py)
-- [configs_template/config_template.json](/Volumes/D/MyGitHub/so-vits-svc-icee/configs_template/config_template.json)
+- [config_templates/config_template.json](/Volumes/D/MyGitHub/so-vits-svc-icee/config_templates/config_template.json)
 
 为什么高风险：
 - 这一步本质上是在改“当前项目默认声码器假设”

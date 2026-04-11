@@ -54,6 +54,23 @@
   - 训练：`python -m src.app_train`
   - 推理：`python -m src.app_infer`
 
+## 🖥️ 平台与硬件说明
+
+当前最可信的结论是：
+
+- 已验证：
+  - `Windows 11 + NVIDIA GPU（12GB）` 可以正常完成训练与推理
+- 理论可行：
+  - `Linux + NVIDIA GPU` 主模型训练、推理和页面入口大概率可用
+- 当前代码层面的真实约束：
+  - 主模型训练需要 `NVIDIA GPU + CUDA`
+  - 扩散训练当前也应视为 `NVIDIA GPU + CUDA` 场景
+  - 主模型训练支持单机多卡
+  - 扩散训练当前按单卡设计
+  - `macOS` 当前不要宣称支持训练；更适合只尝试推理或做非训练类检查
+
+如果你准备在非 Windows + NVIDIA GPU 环境使用，建议把它理解为“代码审查后理论可行”，而不是“仓库已经完成真机验证”。
+
 相关说明文档：
 
 - [项目理论基础与训练流程说明](./项目理论基础与训练流程说明.md)
@@ -134,6 +151,12 @@ pip install --upgrade pip setuptools wheel
 pip install -U torch torchaudio --index-url https://download.pytorch.org/whl/cu118
 pip install -r requirements.txt
 ```
+
+说明：
+
+- `Windows + NVIDIA GPU` 是当前优先验证的平台
+- `Linux + NVIDIA GPU` 可按相同思路准备 CUDA 版 PyTorch
+- `macOS` 可以安装 CPU 版 `torch / torchaudio` 做页面和推理尝试，但不要把它当成训练环境
 
 ### 2. 训练模型
 

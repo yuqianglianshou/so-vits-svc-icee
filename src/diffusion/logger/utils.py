@@ -12,6 +12,16 @@ def resolve_torch_load_device(device='cpu'):
     return torch.device(device_str)
 
 
+def resolve_runtime_device(device='cpu'):
+    """把配置里的设备字符串收敛成可直接运行的 torch.device。"""
+    return resolve_torch_load_device(device)
+
+
+def resolve_autocast_device_type(device='cpu') -> str:
+    """autocast 只接受设备类型，不接受 cuda:0 这类完整设备字符串。"""
+    return resolve_runtime_device(device).type
+
+
 def traverse_dir(
         root_dir,
         extensions,

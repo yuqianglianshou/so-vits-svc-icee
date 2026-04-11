@@ -97,6 +97,14 @@ def list_local_model_checkpoints(local_model_selection: str):
     return [str(path) for path in sorted(model_dir.glob("G_*.pth"), key=_checkpoint_step)]
 
 
+def list_local_model_diffusion_checkpoints(local_model_selection: str):
+    model_dir = Path((local_model_selection or "").strip())
+    diffusion_dir = model_dir / "diffusion"
+    if not diffusion_dir.is_dir():
+        return []
+    return [str(path) for path in _list_trained_diffusion_checkpoints(diffusion_dir)]
+
+
 def detect_local_model_extras(local_model_selection: str):
     model_dir = Path((local_model_selection or "").strip())
     if not model_dir.exists():
@@ -128,10 +136,16 @@ def model_checkpoint_refresh_fn(model_selection: str):
     return gr.update(choices=checkpoints, value=value, interactive=bool(checkpoints))
 
 
+def model_diffusion_checkpoint_refresh_fn(model_selection: str):
+    checkpoints = list_local_model_diffusion_checkpoints(model_selection)
+    value = checkpoints[-1] if checkpoints else None
+    return gr.update(choices=checkpoints, value=value, interactive=bool(checkpoints))
+
+
 def model_extra_refresh_fn(model_selection: str):
     diff_model_path, diff_config_path, cluster_model_path = detect_local_model_extras(model_selection)
     return (
-        gr.update(value=diff_model_path or ""),
+        gr.update(value=diff_model_path or "", choices=list_local_model_diffusion_checkpoints(model_selection), interactive=bool(diff_model_path)),
         gr.update(value=diff_config_path or ""),
         gr.update(value=cluster_model_path or ""),
     )

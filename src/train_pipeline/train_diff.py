@@ -67,14 +67,18 @@ if __name__ == '__main__':
     scheduler = lr_scheduler.StepLR(optimizer, step_size=args.train.decay_step, gamma=args.train.gamma,last_epoch=initial_global_step-2)
     
     # device
-    if args.device == 'cuda':
-        torch.cuda.set_device(args.env.gpu_id)
-    model.to(args.device)
+    runtime_device = utils.resolve_runtime_device(args.device)
+    if runtime_device.type == 'cuda':
+        gpu_index = runtime_device.index if runtime_device.index is not None else int(args.env.gpu_id)
+        torch.cuda.set_device(gpu_index)
+    model.to(runtime_device)
     
     for state in optimizer.state.values():
         for k, v in state.items():
             if torch.is_tensor(v):
-                state[k] = v.to(args.device)
+                state[k] = v.to(runtime_device)
+
+    args.device = str(runtime_device)
                     
     # datas
     loader_train, loader_valid = get_data_loaders(args, whole_audio=False)

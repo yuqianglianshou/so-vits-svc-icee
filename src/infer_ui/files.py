@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from src.infer_ui.bundle import unpack_infer_bundle
-from src.infer_ui.local_models import detect_local_model_extras
+from src.infer_ui.local_models import detect_local_model_extras, list_local_model_diffusion_checkpoints
 
 
 def resolve_uploaded_path(file_obj):
@@ -49,7 +49,19 @@ def _resolve_selected_library_model(model_source, workspace_model_selection, wor
     return _resolve_local_model_dir(imported_model_selection, imported_model_checkpoint_selection), imported_model_selection
 
 
-def resolve_model_inputs(model_path, config_path, cluster_model_path, diff_model_path, diff_config_path, local_model_enabled, model_source, workspace_model_selection, workspace_model_checkpoint_selection, imported_model_selection, imported_model_checkpoint_selection, enable_diffusion=True, enable_cluster=True):
+def _resolve_local_diffusion_model(model_dir: str, local_diffusion_checkpoint_selection: str | None = None):
+    diff_model_path, diff_config_path, _ = detect_local_model_extras(model_dir)
+    diffusion_ckpts = [Path(path) for path in list_local_model_diffusion_checkpoints(model_dir)]
+    selected_checkpoint = (local_diffusion_checkpoint_selection or "").strip()
+    if selected_checkpoint:
+        checkpoint_path = Path(selected_checkpoint)
+        if checkpoint_path not in diffusion_ckpts:
+            raise FileNotFoundError(f"所选音质增强模型 `.pt` 不属于当前模型目录：{checkpoint_path}")
+        diff_model_path = str(checkpoint_path)
+    return diff_model_path, diff_config_path
+
+
+def resolve_model_inputs(model_path, config_path, cluster_model_path, diff_model_path, diff_config_path, local_model_enabled, model_source, workspace_model_selection, workspace_model_checkpoint_selection, workspace_diffusion_checkpoint_selection, imported_model_selection, imported_model_checkpoint_selection, imported_diffusion_checkpoint_selection, enable_diffusion=True, enable_cluster=True):
     if local_model_enabled:
         (resolved_model_path, resolved_config_path), selected_model_dir = _resolve_selected_library_model(
             model_source,
@@ -58,7 +70,12 @@ def resolve_model_inputs(model_path, config_path, cluster_model_path, diff_model
             imported_model_selection,
             imported_model_checkpoint_selection,
         )
-        resolved_diff_model_path, resolved_diff_config_path, resolved_cluster_model_path = detect_local_model_extras(selected_model_dir)
+        local_diffusion_checkpoint_selection = workspace_diffusion_checkpoint_selection if model_source == "workspace" else imported_diffusion_checkpoint_selection
+        resolved_diff_model_path, resolved_diff_config_path = _resolve_local_diffusion_model(
+            selected_model_dir,
+            local_diffusion_checkpoint_selection,
+        )
+        _, _, resolved_cluster_model_path = detect_local_model_extras(selected_model_dir)
     else:
         bundle_path = resolve_uploaded_path(model_path)
         if not bundle_path:
