@@ -69,25 +69,7 @@
     .card-status::after,
     .card-params::after,
     .card-output::after {
-        position: absolute;
-        top: 12px;
-        right: 14px;
-        font-size: 10px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: rgba(34, 71, 53, 0.28);
-    }
-    .card-model::after {
-        content: "Studio Input";
-    }
-    .card-status::after {
-        content: "Load Check";
-    }
-    .card-params::after {
-        content: "Mastering";
-    }
-    .card-output::after {
-        content: "Render";
+        display: none;
     }
     .subtle-note {
         color: var(--muted-ink);
@@ -285,6 +267,15 @@
     .gradio-container .row {
         gap: 10px !important;
     }
+    .gradio-container .prose p,
+    .gradio-container .prose li {
+        margin-bottom: 0.35em;
+    }
+    .gradio-container .gr-form,
+    .gradio-container .form > *,
+    .gradio-container .block > * {
+        margin-top: 0 !important;
+    }
     .compact-status textarea {
         min-height: 116px !important;
         font-size: 14px !important;
@@ -300,6 +291,32 @@
         border-radius: 14px;
         border: 1px solid rgba(34, 71, 53, 0.10);
         padding: 3px;
+    }
+    .card-output .gr-file,
+    .card-output .gr-audio,
+    .card-output .gr-html {
+        margin-top: 4px !important;
+    }
+    .card-model .gr-button,
+    .card-status .gr-button,
+    .card-params .gr-button,
+    .card-output .gr-button {
+        margin-top: 2px !important;
+    }
+    .card-model .gr-markdown p,
+    .card-params .gr-markdown p,
+    .card-output .gr-markdown p {
+        margin-bottom: 0.25em;
+    }
+    .card-model .gr-markdown h3,
+    .card-status .gr-markdown h3,
+    .card-params .gr-markdown h3,
+    .card-output .gr-markdown h3 {
+        padding-right: 0 !important;
+    }
+    .card-status .gr-checkbox-group,
+    .card-status .gr-checkbox {
+        margin-bottom: 2px !important;
     }
     footer {
         display: none !important;

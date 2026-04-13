@@ -88,12 +88,13 @@ def run(rank, n_gpus, hps, use_ddp=True):
     prefetch_factor = hps.train.get("prefetch_factor")
     if prefetch_factor is None:
         prefetch_factor = 2
+    windows_loader_compat = bool(hps.train.get("windows_loader_compat", False))
     if all_in_mem:
         num_workers = 0
         persistent_workers = False
-    if os.name == "nt":
-        # Windows spawn/DDP environments can fail to create DataLoader worker pipes.
-        # Prefer single-process loading for reliability.
+    if os.name == "nt" and windows_loader_compat:
+        # Optional compatibility mode for Windows environments that cannot
+        # start DataLoader workers reliably.
         num_workers = 0
         persistent_workers = False
 
@@ -125,7 +126,7 @@ def run(rank, n_gpus, hps, use_ddp=True):
         eval_prefetch_factor = hps.train.get("eval_prefetch_factor")
         if eval_prefetch_factor is None:
             eval_prefetch_factor = 2
-        if os.name == "nt":
+        if os.name == "nt" and windows_loader_compat:
             eval_num_workers = 0
             eval_persistent_workers = False
 

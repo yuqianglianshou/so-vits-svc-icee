@@ -49,6 +49,7 @@
     "pin_memory": true,
     "persistent_workers": true,
     "prefetch_factor": 2,
+    "windows_loader_compat": false,
     "eval_num_workers": 1,
     "eval_pin_memory": false,
     "eval_persistent_workers": false,

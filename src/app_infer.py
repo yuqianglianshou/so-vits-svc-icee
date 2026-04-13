@@ -324,7 +324,7 @@ with gr.Blocks(
         with gr.Column(scale=12, elem_classes=["step-card", "card-output"]):
             gr.Markdown("### 5. 文本转语音并转换")
             gr.Markdown("先用 EdgeTTS 生成语音，再走当前模型转换。")
-            tts_text = gr.Textbox(label="输入文本", lines=4, placeholder="输入想要合成并转换的文本")
+            tts_text = gr.Textbox(label="输入文本", lines=3, placeholder="输入想要合成并转换的文本")
             with gr.Row():
                 tts_lang = gr.Dropdown(
                     label="语音语言",
@@ -339,7 +339,7 @@ with gr.Blocks(
             with gr.Row():
                 tts_rate = gr.Slider(label="语速", minimum=-1.0, maximum=1.0, step=0.05, value=0.0)
                 tts_volume = gr.Slider(label="音量", minimum=-1.0, maximum=1.0, step=0.05, value=0.0)
-            tts_submit = gr.Button("开始文本转语音并转换", variant="primary", elem_classes=["primary-action"])
+                tts_submit = gr.Button("开始文本转语音并转换", variant="primary", elem_classes=["primary-action"])
             gr.Markdown("#### 处理结果")
             tts_output1 = gr.HTML(render_convert_result_html("等待开始转换。"))
             tts_output2 = gr.Audio(label="输出音频试听", interactive=False, elem_classes=["result-audio"])
