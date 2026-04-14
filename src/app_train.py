@@ -149,6 +149,11 @@ INFER_UI_STATE = {
     "port": None,
 }
 
+TENSORBOARD_STATE = {
+    "proc": None,
+    "port": 6006,
+}
+
 UI_NOTICE = {
     "message": None,
     "expires_at": 0.0,
@@ -1111,7 +1116,7 @@ def launch_pipeline_train_main(model_name: str, raw_dir: str, train_dir: str, sp
 
 
 def launch_tensorboard():
-    return launch_tensorboard_action(root=ROOT, active_task=ACTIVE_TASK, ui_notice=UI_NOTICE)
+    return launch_tensorboard_action(root=ROOT, tensorboard_state=TENSORBOARD_STATE, ui_notice=UI_NOTICE)
 
 
 def launch_infer_ui():

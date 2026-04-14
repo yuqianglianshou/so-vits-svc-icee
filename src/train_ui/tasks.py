@@ -16,6 +16,7 @@ import subprocess
 import sys
 import threading
 import time
+import ctypes
 from pathlib import Path
 from typing import Callable
 
@@ -36,6 +37,88 @@ from src.train_ui.paths import (
 from src.train_ui.workspace import count_raw_dataset_wavs
 
 WINDOWS_NEW_PROCESS_GROUP = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+WINDOWS_PROCESS_ALL_ACCESS = 0x1F0FFF
+WINDOWS_JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
+
+
+if os.name == "nt":
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+    class JOBOBJECT_BASIC_LIMIT_INFORMATION(ctypes.Structure):
+        _fields_ = [
+            ("PerProcessUserTimeLimit", ctypes.c_longlong),
+            ("PerJobUserTimeLimit", ctypes.c_longlong),
+            ("LimitFlags", ctypes.c_uint32),
+            ("MinimumWorkingSetSize", ctypes.c_size_t),
+            ("MaximumWorkingSetSize", ctypes.c_size_t),
+            ("ActiveProcessLimit", ctypes.c_uint32),
+            ("Affinity", ctypes.c_void_p),
+            ("PriorityClass", ctypes.c_uint32),
+            ("SchedulingClass", ctypes.c_uint32),
+        ]
+
+    class IO_COUNTERS(ctypes.Structure):
+        _fields_ = [
+            ("ReadOperationCount", ctypes.c_ulonglong),
+            ("WriteOperationCount", ctypes.c_ulonglong),
+            ("OtherOperationCount", ctypes.c_ulonglong),
+            ("ReadTransferCount", ctypes.c_ulonglong),
+            ("WriteTransferCount", ctypes.c_ulonglong),
+            ("OtherTransferCount", ctypes.c_ulonglong),
+        ]
+
+    class JOBOBJECT_EXTENDED_LIMIT_INFORMATION(ctypes.Structure):
+        _fields_ = [
+            ("BasicLimitInformation", JOBOBJECT_BASIC_LIMIT_INFORMATION),
+            ("IoInfo", IO_COUNTERS),
+            ("ProcessMemoryLimit", ctypes.c_size_t),
+            ("JobMemoryLimit", ctypes.c_size_t),
+            ("PeakProcessMemoryUsed", ctypes.c_size_t),
+            ("PeakJobMemoryUsed", ctypes.c_size_t),
+        ]
+
+
+def _attach_process_to_parent_job(proc):
+    if os.name != "nt" or proc is None:
+        return
+
+    job_info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
+    job_info.BasicLimitInformation.LimitFlags = WINDOWS_JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+    job_handle = kernel32.CreateJobObjectW(None, None)
+    if not job_handle:
+        return
+
+    info_class = 9  # JobObjectExtendedLimitInformation
+    if not kernel32.SetInformationJobObject(
+        job_handle,
+        info_class,
+        ctypes.byref(job_info),
+        ctypes.sizeof(job_info),
+    ):
+        kernel32.CloseHandle(job_handle)
+        return
+
+    process_handle = kernel32.OpenProcess(WINDOWS_PROCESS_ALL_ACCESS, False, proc.pid)
+    if not process_handle:
+        kernel32.CloseHandle(job_handle)
+        return
+
+    try:
+        if not kernel32.AssignProcessToJobObject(job_handle, process_handle):
+            kernel32.CloseHandle(job_handle)
+            return
+        proc._job_handle = job_handle
+    finally:
+        kernel32.CloseHandle(process_handle)
+
+
+def _release_process_resources(proc):
+    if proc is None:
+        return
+    job_handle = getattr(proc, "_job_handle", None)
+    if os.name == "nt" and job_handle:
+        kernel32.CloseHandle(job_handle)
+        proc._job_handle = None
 
 
 def _find_available_local_port(default_port: int, max_tries: int = 50) -> int:
@@ -63,6 +146,9 @@ def _assign_train_port(model_name: str, default_port: int = 8001) -> int:
 def _task_running(active_task: dict):
     proc = active_task["proc"]
     thread = active_task["thread"]
+    if proc is not None and proc.poll() is not None:
+        _release_process_resources(proc)
+        active_task["proc"] = None
     return (proc is not None and proc.poll() is None) or (thread is not None and thread.is_alive())
 
 
@@ -76,16 +162,20 @@ def _spawn_popen(cmd: list[str], log_file):
         kwargs["creationflags"] = WINDOWS_NEW_PROCESS_GROUP
     else:
         kwargs["start_new_session"] = True
-    return subprocess.Popen(cmd, **kwargs)
+    proc = subprocess.Popen(cmd, **kwargs)
+    _attach_process_to_parent_job(proc)
+    return proc
 
 
 def _terminate_process_tree(proc):
     if proc is None or proc.poll() is not None:
+        _release_process_resources(proc)
         return
     if os.name == "nt":
         try:
             proc.send_signal(signal.CTRL_BREAK_EVENT)
             proc.wait(timeout=3)
+            _release_process_resources(proc)
             return
         except Exception:
             pass
@@ -96,11 +186,13 @@ def _terminate_process_tree(proc):
             stderr=subprocess.DEVNULL,
             check=False,
         )
+        _release_process_resources(proc)
         return
     try:
         os.killpg(proc.pid, signal.SIGTERM)
     except Exception:
         proc.terminate()
+    _release_process_resources(proc)
 
 
 def _running_conflict_response(active_task: dict, task_runtime_text_fn: Callable[[], str], tail_log_fn: Callable[[Path], str]):

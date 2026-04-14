@@ -78,17 +78,36 @@ def ensure_localhost_bypass_proxy():
             os.environ[key] = ",".join(entries)
 
 
-def launch_tensorboard(*, root: Path, active_task: dict, ui_notice: dict) -> str:
-    tb_cmd = [sys.executable, "-m", "tensorboard.main", "--logdir=model_assets/workspaces", "--port=6006"]
-    current = active_task["proc"]
-    if current is not None and current.poll() is None:
-        return "当前已有训练任务在运行。TensorBoard 不占用训练槽位，请手动在终端启动。"
-    subprocess.Popen(tb_cmd, cwd=root, start_new_session=True)
-    opened = open_local_url("http://127.0.0.1:6006", root=root)
+def launch_tensorboard(*, root: Path, tensorboard_state: dict, ui_notice: dict) -> str:
+    tensorboard_port = 6006
+    tensorboard_url = f"http://127.0.0.1:{tensorboard_port}"
+    existing_proc = tensorboard_state.get("proc")
+    existing_port = tensorboard_state.get("port") or tensorboard_port
+
+    if existing_proc is not None and existing_proc.poll() is None:
+        existing_url = f"http://127.0.0.1:{existing_port}"
+        if open_local_url(existing_url, root=root):
+            message = f"已打开当前训练监控：{existing_url}"
+        else:
+            message = f"训练监控已在运行，请手动访问：{existing_url}"
+        set_ui_notice(ui_notice, message)
+        return message
+
+    tb_cmd = [sys.executable, "-m", "tensorboard.main", "--logdir=model_assets/workspaces", "--port", str(tensorboard_port)]
+    proc = subprocess.Popen(
+        tb_cmd,
+        cwd=root,
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    tensorboard_state["proc"] = proc
+    tensorboard_state["port"] = tensorboard_port
+    opened = open_local_url(tensorboard_url, root=root)
     if opened:
-        message = "已启动并尝试打开训练监控：http://127.0.0.1:6006"
+        message = f"已启动并尝试打开训练监控：{tensorboard_url}"
     else:
-        message = "训练监控已启动，但浏览器没有成功打开。请手动访问：http://127.0.0.1:6006"
+        message = f"训练监控已启动，但浏览器没有成功打开。请手动访问：{tensorboard_url}"
     set_ui_notice(ui_notice, message)
     return message
 
