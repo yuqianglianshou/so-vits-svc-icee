@@ -566,8 +566,8 @@ class HParams():
   def __repr__(self):
     return self.__dict__.__repr__()
 
-  def get(self,index):
-    return self.__dict__.get(index)
+  def get(self, index, default=None):
+    return self.__dict__.get(index, default)
 
   
 class InferHParams(HParams):
