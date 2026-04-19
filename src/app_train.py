@@ -23,7 +23,6 @@ from typing import List, Optional, Tuple
 
 import gradio as gr
 from huggingface_hub import hf_hub_download
-from src.gradio_api_info_fallback import apply_gradio_4_api_info_patch
 from src.path_utils import (
     BASE_MODEL_44K_DIFFUSION_DIR,
     BASE_MODEL_44K_DIR,
@@ -60,6 +59,7 @@ from src.train_ui.tasks import (
 from src.train_ui.pretrain import (
     first_missing_pretrain_asset,
     is_pretrain_asset_ready,
+    missing_required_files,
     normalize_asset_key,
     ordered_pretrain_asset_keys,
     pretrain_asset_choices,
@@ -121,8 +121,6 @@ from src.train_ui.text import (
     render_pretrain_progress as render_pretrain_progress_html,
 )
 from src.utils import get_supported_speech_encoders
-
-apply_gradio_4_api_info_patch()
 
 
 CODE_ROOT = Path(__file__).resolve().parent
@@ -324,14 +322,25 @@ def import_pretrain_asset(asset_key, uploaded_file):
     if asset_key == "contentvec_hf":
         target_dir = asset["target"]
         target_dir.mkdir(parents=True, exist_ok=True)
+        imported_files = []
         if len(source_path_list) == 1 and source_path_list[0].suffix.lower() == ".zip":
             with zipfile.ZipFile(source_path_list[0], "r") as zf:
                 zf.extractall(target_dir)
+            imported_files.append(source_path_list[0].name)
         else:
             for source_path in source_path_list:
                 if source_path.name in {"config.json", "model.safetensors"}:
                     shutil.copyfile(source_path, target_dir / source_path.name)
-        return render_pretrain_asset_guide(asset_key), render_pretrain_status(), gr.update(value=None)
+                    imported_files.append(source_path.name)
+        missing_files = missing_required_files(asset)
+        if missing_files:
+            message = (
+                f"已导入 {', '.join(imported_files) if imported_files else '所选文件'}；"
+                f"ContentVec HF 还缺少 {', '.join(missing_files)}。"
+            )
+            return build_pretrain_guide_with_notice(asset_key, message, "info"), render_pretrain_status(), gr.update(value=None)
+        message = "ContentVec HF 已就绪，config.json 和 model.safetensors 都已存在。"
+        return build_pretrain_guide_with_notice(asset_key, message, "success"), render_pretrain_status(), gr.update(value=None)
 
     zip_targets = {
         "rmvpe": {"rmvpe.pt", "model.pt"},
@@ -427,8 +436,13 @@ def download_pretrain_asset(asset_key):
         if asset_key == "contentvec_hf":
             target.mkdir(parents=True, exist_ok=True)
             file_urls = download_url_map["contentvec_hf"]
+            missing_files = missing_required_files(asset)
+            if not missing_files:
+                message = f"ContentVec HF 已就绪：{target.relative_to(ROOT).as_posix()}/。"
+                return build_pretrain_guide_with_notice(asset_key, message, "success"), render_pretrain_status()
             downloaded_files = []
-            for filename, download_meta in file_urls.items():
+            for filename in missing_files:
+                download_meta = file_urls[filename]
                 destination = target / filename
                 try:
                     cached_path = hf_hub_download(
@@ -837,6 +851,8 @@ def task_runtime_text():
 
 
 def render_runtime_banner():
+    if UI_NOTICE.get("message") and UI_NOTICE.get("expires_at", 0) > time.time():
+        return UI_NOTICE["message"]
     return render_runtime_banner_text(
         ACTIVE_TASK,
         current_stage_label_fn=current_stage_label,

@@ -178,7 +178,7 @@ model_assets/dependencies/
 !model_assets/dependencies/
 !model_assets/dependencies/encoders/
 model_assets/dependencies/encoders/*.pt
-model_assets/dependencies/encoders/contentvec_hf/config.json
+# model_assets/dependencies/encoders/contentvec_hf/config.json
 model_assets/dependencies/encoders/contentvec_hf/model.safetensors
 !model_assets/dependencies/encoders/put_encoder_files_here
 !model_assets/dependencies/vocoders/

@@ -111,6 +111,32 @@
         color: #7a746b;
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     }
+    .dependency-status-files,
+    .dependency-guide-files {
+        margin-top: 8px;
+        display: grid;
+        gap: 6px;
+    }
+    .dependency-status-file,
+    .dependency-guide-file {
+        display: grid;
+        grid-template-columns: 18px minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: center;
+        font-size: 12px;
+        color: #5f5a52;
+    }
+    .dependency-guide-file {
+        grid-template-columns: 18px minmax(0, 1fr);
+        font-size: 13px;
+    }
+    .dependency-guide-file code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        background: rgba(47, 39, 29, 0.06);
+        border-radius: 4px;
+        padding: 1px 4px;
+    }
     .dependency-status-summary {
         margin-top: 14px;
         padding-top: 8px;

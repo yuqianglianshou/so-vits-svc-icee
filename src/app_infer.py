@@ -7,7 +7,6 @@ from pathlib import Path
 import gradio as gr
 import torch
 
-from src.gradio_api_info_fallback import apply_gradio_4_api_info_patch
 from src.infer_ui.input_history import (
     build_input_audio_history_choices,
     handle_selected_history_audio,
@@ -42,8 +41,6 @@ from src.infer_ui.text import (
     render_convert_result_html,
 )
 from src.quality_presets import BEST_QUALITY_PRESET, QUALITY_MODES
-
-apply_gradio_4_api_info_patch()
 
 CODE_ROOT = Path(__file__).resolve().parent
 ROOT = CODE_ROOT.parent

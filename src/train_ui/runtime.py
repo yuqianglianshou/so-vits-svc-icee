@@ -63,8 +63,17 @@ def render_preflight_check(
     elif not is_rmvpe_asset_valid_fn():
         train_requirements.append(f"RMVPE 预训练文件已损坏，请重新导入：{get_rmvpe_path_fn().relative_to(ROOT).as_posix()}")
     contentvec_hf_dir = get_contentvec_hf_path_fn()
-    if not ((contentvec_hf_dir / "config.json").exists() and (contentvec_hf_dir / "model.safetensors").exists()):
-        train_requirements.append(f"缺少 ContentVec HF 模型目录：{contentvec_hf_dir.relative_to(ROOT).as_posix()}/")
+    contentvec_missing_files = [
+        filename
+        for filename in ("config.json", "model.safetensors")
+        if not (contentvec_hf_dir / filename).exists()
+    ]
+    if contentvec_missing_files:
+        train_requirements.append(
+            "缺少 ContentVec HF 文件："
+            f"{contentvec_hf_dir.relative_to(ROOT).as_posix()}/"
+            f"（{', '.join(contentvec_missing_files)}）"
+        )
     if not (get_nsf_hifigan_model_path_fn().exists() and get_nsf_hifigan_config_path_fn().exists()):
         train_requirements.append(f"缺少 NSF-HIFIGAN 声码器：{get_nsf_hifigan_model_path_fn().parent.relative_to(ROOT).as_posix()}/")
     if raw_wavs == 0:

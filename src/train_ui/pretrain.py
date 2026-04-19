@@ -6,6 +6,7 @@ from __future__ import annotations
 """
 
 import ast
+import html
 from pathlib import Path
 
 
@@ -55,13 +56,27 @@ def render_pretrain_target(root: Path, asset):
     return asset["target"].relative_to(root).as_posix()
 
 
+def required_file_states(asset):
+    """返回目录型依赖里每个必需文件的存在状态。"""
+    target_dir = asset["target"]
+    return [
+        (relative_path, (target_dir / relative_path).exists())
+        for relative_path in asset.get("required_files", [])
+    ]
+
+
+def missing_required_files(asset):
+    """返回目录型依赖中仍缺失的必需文件。"""
+    return [relative_path for relative_path, exists in required_file_states(asset) if not exists]
+
+
 def is_pretrain_asset_ready(asset, rmvpe_path: Path, rmvpe_validator):
     """判断某个训练前依赖是否已经就绪且可用。"""
     if asset.get("is_archive"):
-        target_dir = asset["target"]
         required_files = asset.get("required_files")
         if required_files:
-            return all((target_dir / relative_path).exists() for relative_path in required_files)
+            return not missing_required_files(asset)
+        target_dir = asset["target"]
         return (target_dir / "model").exists() and (target_dir / "config.json").exists()
     if asset["target"] == rmvpe_path:
         return rmvpe_validator()
@@ -72,7 +87,13 @@ def pretrain_asset_state(asset_key: str, asset_registry, rmvpe_path: Path, rmvpe
     """返回单个依赖的简短状态文案。"""
     asset = asset_registry[asset_key]
     if asset.get("is_archive"):
-        return "已存在" if is_pretrain_asset_ready(asset, rmvpe_path, rmvpe_validator) else "缺失"
+        missing_files = missing_required_files(asset)
+        if not missing_files:
+            return "已存在"
+        required_files = asset.get("required_files", [])
+        if len(missing_files) < len(required_files):
+            return "缺少 " + "、".join(missing_files)
+        return "缺失"
     if asset_key == "rmvpe":
         if not asset["target"].exists():
             return "缺失"
@@ -132,10 +153,26 @@ def render_pretrain_status(root: Path, asset_registry, rmvpe_path: Path, rmvpe_v
         ready = status == "已存在"
         status_icon = "✓" if ready else "✕"
         color = "#1f8f4c" if ready else "#c0392b"
+        required_file_rows = ""
+        if asset.get("required_files"):
+            file_rows = []
+            for relative_path, exists in required_file_states(asset):
+                file_color = "#1f8f4c" if exists else "#c0392b"
+                file_icon = "✓" if exists else "✕"
+                file_status = "已存在" if exists else "缺失"
+                file_rows.append(
+                    '<div class="dependency-status-file">'
+                    f'<span style="color:{file_color};">{file_icon}</span>'
+                    f'<span>{html.escape(relative_path)}</span>'
+                    f'<span style="color:{file_color};">{file_status}</span>'
+                    '</div>'
+                )
+            required_file_rows = '<div class="dependency-status-files">' + "".join(file_rows) + "</div>"
         rows.append(
             '<div class="dependency-status-row">'
             f'<div class="dependency-status-title"><span class="dependency-status-icon" style="color:{color};border-color:{color};">{status_icon}</span>{asset["label"]}：<span style="color:{color};">{status}</span></div>'
             f'<div class="dependency-status-path">{render_pretrain_target(root, asset)}</div>'
+            f"{required_file_rows}"
             '</div>'
         )
 
@@ -154,7 +191,25 @@ def render_pretrain_asset_guide(root: Path, asset_key, asset_registry, rmvpe_pat
     links = " / ".join([f'<a href="{url}" target="_blank">{label}</a>' for label, url in asset["download_links"]])
     extra_hint = ""
     if asset_key == "contentvec_hf":
-        extra_hint = "<div>提示：`config.json` 如果打开成文本页，请右键链接并选择“另存为”。</div>"
+        file_rows = []
+        link_map = {label.split(" ")[0]: (label, url) for label, url in asset["download_links"]}
+        for relative_path, exists in required_file_states(asset):
+            label, url = link_map.get(relative_path, (relative_path, ""))
+            file_color = "#1f8f4c" if exists else "#c0392b"
+            file_status = "已存在" if exists else "缺失，需要下载或上传"
+            file_link = f' · <a href="{url}" target="_blank">{label}</a>' if url else ""
+            file_rows.append(
+                '<div class="dependency-guide-file">'
+                f'<span style="color:{file_color}; font-weight:800;">{"✓" if exists else "✕"}</span>'
+                f'<span><code>{html.escape(relative_path)}</code>：<span style="color:{file_color};">{file_status}</span>{file_link}</span>'
+                '</div>'
+            )
+        extra_hint = (
+            '<div class="dependency-guide-files">'
+            + "".join(file_rows)
+            + "</div>"
+            + "<div>提示：<code>config.json</code> 如果打开成文本页，请右键链接并选择“另存为”。</div>"
+        )
     return (
         '<div style="font-size:14px; color:#5f5a52;">'
         f"<div><strong>{asset['label']}</strong> · {status}</div>"
