@@ -37,20 +37,29 @@ def process(item):
     out_dir = resolve_output_dir(args.out_dir2, speaker, bool(args.speaker))
 
     wav_path = os.path.join(args.in_dir, speaker, wav_name)
+    process_wav_path(wav_path, wav_name, out_dir, args.sr2)
+
+
+def process_direct(item):
+    in_dir, wav_name, args = item
+    process_wav_path(os.path.join(in_dir, wav_name), wav_name, args.out_dir2, args.sr2)
+
+
+def process_wav_path(wav_path, wav_name, out_dir, target_sr):
     if os.path.exists(wav_path) and wav_name.lower().endswith(".wav"):
         os.makedirs(out_dir, exist_ok=True)
 
         wav, sr = load_wav(wav_path)
         wav, _ = trim_wav(wav)
-        resampled_wav = resample_wav(wav, sr, args.sr2)
+        resampled_wav = resample_wav(wav, sr, target_sr)
 
         save_path2 = os.path.join(out_dir, wav_name)
-        save_wav_to_path(resampled_wav, save_path2, args.sr2)
+        save_wav_to_path(resampled_wav, save_path2, target_sr)
 
 
 def resolve_output_dir(out_dir: str, speaker: str, selected_single_speaker: bool) -> str:
     """兼容两种输出模式：
-    1. UI 主线：out_dir 已经是 training_data/processed/44k/<speaker>，不再重复套一层；
+    1. UI 主线：out_dir 已经是工作区内的 processed/44k 目录，直接输出；
     2. 旧 CLI：out_dir 指向父目录时，仍保留 <speaker>/ 子目录。
     """
     out_path = Path(out_dir)
@@ -78,6 +87,14 @@ def process_all_speakers():
 def process_all_speakers():
     process_count = 30 if os.cpu_count() > 60 else (os.cpu_count() - 2 if os.cpu_count() > 4 else 1)
     with ProcessPoolExecutor(max_workers=process_count) as executor:
+        if not args.speaker:
+            direct_wavs = [name for name in os.listdir(args.in_dir) if name.lower().endswith(".wav")]
+            if direct_wavs:
+                print(args.in_dir)
+                futures = [executor.submit(process_direct, (args.in_dir, i, args)) for i in direct_wavs]
+                for future in track(concurrent.futures.as_completed(futures), total=len(futures), description="resampling:"):
+                    future.result()
+                return
         for speaker in speakers:
             spk_dir = os.path.join(args.in_dir, speaker)
             if os.path.isdir(spk_dir):
@@ -90,9 +107,9 @@ def process_all_speakers():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--sr2", type=int, default=44100, help="sampling rate")
-    parser.add_argument("--in_dir", type=str, default="./training_data/source", help="path to source dir")
+    parser.add_argument("--in_dir", type=str, default="./model_assets/workspaces/44k/training_data/source", help="path to source dir")
     parser.add_argument("--speaker", type=str, default="", help="only process the selected speaker folder under in_dir")
-    parser.add_argument("--out_dir2", type=str, default="./training_data/processed/44k", help="path to target dir")
+    parser.add_argument("--out_dir2", type=str, default="./model_assets/workspaces/44k/training_data/processed/44k", help="path to target dir")
     args = parser.parse_args()
 
     print(f"CPU count: {cpu_count()}")

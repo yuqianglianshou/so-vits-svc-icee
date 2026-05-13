@@ -53,7 +53,7 @@ python -m src.app_infer
 ## 快速安装
 
 ```powershell
-git clone <你的仓库地址>
+git clone https://github.com/yuqianglianshou/so-vits-svc-icee.git
 cd so-vits-svc-icee
 py -3.11 -m venv .venv311
 .venv311\Scripts\activate
@@ -109,6 +109,16 @@ launchers/启动推理界面.bat
 - 转换输入音频
 - 导出运行摘要
 
+## 界面预览
+
+训练页：
+
+![训练页](./images/训练页.png)
+
+推理页：
+
+![推理页](./images/推理页.png)
+
 ## 训练前依赖
 
 训练页会检查并引导补齐这些文件：
@@ -132,22 +142,21 @@ ContentVec HF 必须同时有 `config.json` 和 `model.safetensors`。训练页�
 ```text
 src/                         # 代码
 config_templates/            # 配置模板
-training_data/source/        # 原始训练音频
-training_data/processed/     # 处理后训练数据
 inference_data/inputs/       # 推理输入
 inference_data/outputs/      # 推理输出
+logs/training_tasks/         # 训练页任务日志
 model_assets/dependencies/   # 训练前依赖与底模
-model_assets/workspaces/     # 训练产物工作区
+model_assets/workspaces/     # 训练工作区，包含模型产物和对应训练数据
 model_assets/imported_models/# 已导入推理模型
 docs/                        # 文档
 ```
 
-推荐一个说话人对应一个模型工作区：
+一个说话人对应一个模型工作区：
 
 ```text
-training_data/source/paimeng/
-training_data/processed/44k/paimeng/
 model_assets/workspaces/paimeng/
+model_assets/workspaces/paimeng/training_data/source/
+model_assets/workspaces/paimeng/training_data/processed/44k/
 ```
 
 ## 文档

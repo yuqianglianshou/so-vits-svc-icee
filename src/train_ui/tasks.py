@@ -17,6 +17,7 @@ import sys
 import threading
 import time
 import ctypes
+from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
@@ -167,6 +168,19 @@ def _spawn_popen(cmd: list[str], log_file):
     return proc
 
 
+def _task_log_path(task_log_dir: Path, task_name: str) -> Path:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_path = task_log_dir / f"{task_name}_{timestamp}.log"
+    if not log_path.exists():
+        return log_path
+    index = 2
+    while True:
+        candidate = task_log_dir / f"{task_name}_{timestamp}_{index}.log"
+        if not candidate.exists():
+            return candidate
+        index += 1
+
+
 def _terminate_process_tree(proc):
     if proc is None or proc.poll() is not None:
         _release_process_resources(proc)
@@ -221,7 +235,7 @@ def start_pipeline(
     if _task_running(active_task):
         return _running_conflict_response(active_task, task_runtime_text_fn, tail_log_fn)
 
-    log_path = task_log_dir / f"{pipeline_name}_{int(time.time())}.log"
+    log_path = _task_log_path(task_log_dir, pipeline_name)
     active_task["started_at"] = time.time()
     active_task["stop_requested"] = False
     active_task["thread"] = None
@@ -289,7 +303,7 @@ def start_task(
     if _task_running(active_task):
         return _running_conflict_response(active_task, task_runtime_text_fn, tail_log_fn)
 
-    log_path = task_log_dir / f"{task_name}_{int(time.time())}.log"
+    log_path = _task_log_path(task_log_dir, task_name)
     log_file = log_path.open("w", encoding="utf-8")
     proc = _spawn_popen(cmd, log_file)
     active_task["thread"] = None
@@ -324,9 +338,12 @@ def stop_task(
 
 def launch_resample(raw_dir: str, train_dir: str, *, active_task: dict, task_log_dir: Path, task_stage_labels: dict, set_active_task_fn: Callable, task_runtime_text_fn: Callable[[], str], tail_log_fn: Callable[[Path], str]):
     """启动第 1 步：把原始 wav 整理到训练目录。"""
+    raw_dir = sanitize_dataset_name(raw_dir) or "default_model"
+    train_dir = train_dir or default_train_dir_for_dataset(raw_dir)
+    raw_source_dir = resolve_raw_dataset_dir(raw_dir).as_posix()
     return start_task(
         "resample",
-        [sys.executable, "-m", "src.train_pipeline.resample", "--in_dir", "training_data/source", "--speaker", raw_dir, "--out_dir2", train_dir],
+        [sys.executable, "-m", "src.train_pipeline.resample", "--in_dir", raw_source_dir, "--out_dir2", train_dir],
         active_task=active_task,
         task_log_dir=task_log_dir,
         task_stage_labels=task_stage_labels,
@@ -503,7 +520,7 @@ def launch_pipeline_prep(
             tail_log_fn(active_task["log_path"]),
         )
     steps = [
-        ("resample", [sys.executable, "-m", "src.train_pipeline.resample", "--in_dir", "training_data/source", "--speaker", raw_dir, "--out_dir2", train_dir], True),
+        ("resample", [sys.executable, "-m", "src.train_pipeline.resample", "--in_dir", resolve_raw_dataset_dir(raw_dir).as_posix(), "--out_dir2", train_dir], True),
         (
             "preprocess_flist_config",
             [
@@ -593,7 +610,7 @@ def launch_pipeline_train_main(
         )
     ensure_runtime_base_models(model_name)
     steps = [
-        ("resample", [sys.executable, "-m", "src.train_pipeline.resample", "--in_dir", "training_data/source", "--speaker", raw_dir, "--out_dir2", train_dir], True),
+        ("resample", [sys.executable, "-m", "src.train_pipeline.resample", "--in_dir", resolve_raw_dataset_dir(raw_dir).as_posix(), "--out_dir2", train_dir], True),
         (
             "preprocess_flist_config",
             [

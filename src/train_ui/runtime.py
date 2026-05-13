@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 from src.train_ui.panels import build_preflight_check_html, build_runtime_banner_text
-from src.train_ui.paths import ROOT, resolve_raw_dataset_dir, sanitize_model_name
+from src.train_ui.paths import ROOT, default_train_dir_for_dataset, resolve_raw_dataset_dir, sanitize_model_name
 from src.train_ui.state import collect_stage_state
 from src.train_ui.text import format_duration, format_duration_clock
 from src.train_ui.workspace import count_raw_dataset_wavs, count_training_wavs
@@ -43,6 +43,7 @@ def render_preflight_check(
     get_nsf_hifigan_config_path_fn,
 ) -> str:
     model_name = sanitize_model_name(model_name)
+    train_dir = train_dir or default_train_dir_for_dataset(model_name)
     stage_state = collect_stage_state(model_name, raw_dir, train_dir)
     raw_relative_dir = resolve_raw_dataset_dir(raw_dir)
     _, raw_wavs = count_raw_dataset_wavs(ROOT / raw_relative_dir)

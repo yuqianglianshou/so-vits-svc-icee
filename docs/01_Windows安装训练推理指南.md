@@ -41,7 +41,7 @@ py -3.11 --version
 在 PowerShell 中执行：
 
 ```powershell
-git clone <你的仓库地址>
+git clone https://github.com/yuqianglianshou/so-vits-svc-icee.git
 cd so-vits-svc-icee
 python -m venv .venv311
 .venv311\Scripts\activate
@@ -129,29 +129,23 @@ ContentVec HF 必须同时有 `config.json` 和 `model.safetensors`。页面会�
 
 训练页里的“模型工作区”决定训练产物写到哪里。
 
-推荐规则：
+规则：
 
-1. 一个说话人用一个模型工作区。
-2. 不要把多个说话人混进同一个模型工作区。
-3. 模型名建议只用英文、数字、下划线或短横线。  
+1. 一个说话人（需要训练的语音角色）建一个模型工作区。
+2. 模型名建议只用英文、数字、下划线或短横线。  
 
-输入 新建模型名，点击 新建训练模型 即可。
+在 新建模型名 输入 paimeng ，点击 新建训练模型 即可。
 
-示例：
+新建后会生成如下文件：
 
 ```text
 model_assets/workspaces/paimeng/
-training_data/source/paimeng/
-training_data/processed/44k/paimeng/
+model_assets/workspaces/paimeng/training_data/source/
+model_assets/workspaces/paimeng/training_data/processed/44k/
 ```
 
-训练第二个说话人时，新建另一个模型工作区，例如：
+训练第二个说话人时，在 新建模型名 输入 "新的名字" ，点击 新建训练模型 即可。
 
-```text
-model_assets/workspaces/ningguang/
-training_data/source/ningguang/
-training_data/processed/44k/ningguang/
-```
 
 ## 6. 导入训练语音数据
 
@@ -174,7 +168,7 @@ training_data/processed/44k/ningguang/
 
 训练页里按顺序执行：
 
-1. `1. 重采样到 training_data/processed/44k`
+1. `1. 重采样到工作区训练目录`
 2. `2. 生成配置与文件列表`
 3. `3. 提取特征`
 4. `4. 启动主模型训练`

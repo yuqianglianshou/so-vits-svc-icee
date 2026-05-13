@@ -132,12 +132,11 @@ Prefer clicking "auto fetch current dependency" in the training page. If that fa
 ```text
 src/                         # source code
 config_templates/            # config templates
-training_data/source/        # raw training audio
-training_data/processed/     # preprocessed training data
 inference_data/inputs/       # inference inputs
 inference_data/outputs/      # inference outputs
+logs/training_tasks/         # training page task logs
 model_assets/dependencies/   # training dependencies and base models
-model_assets/workspaces/     # training workspaces and outputs
+model_assets/workspaces/     # training workspaces, outputs, and matching training data
 model_assets/imported_models/# imported inference models
 docs/                        # documentation
 ```
@@ -145,9 +144,9 @@ docs/                        # documentation
 Recommended mapping: one speaker corresponds to one model workspace.
 
 ```text
-training_data/source/paimeng/
-training_data/processed/44k/paimeng/
 model_assets/workspaces/paimeng/
+model_assets/workspaces/paimeng/training_data/source/
+model_assets/workspaces/paimeng/training_data/processed/44k/
 ```
 
 ## Documentation

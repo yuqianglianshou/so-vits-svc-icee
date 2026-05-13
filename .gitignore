@@ -144,13 +144,6 @@ dmypy.json
 /shelf/
 /workspace.xml
 
-training_data/*
-!training_data/source/
-!training_data/processed/
-training_data/source/*
-!training_data/source/.gitkeep
-training_data/processed/*
-!training_data/processed/.gitkeep
 inference_data/*
 !inference_data/inputs/
 !inference_data/outputs/
@@ -158,12 +151,11 @@ inference_data/inputs/*
 !inference_data/inputs/.gitkeep
 inference_data/outputs/*
 !inference_data/outputs/.gitkeep
-inference/chunks_temp.json
+logs/training_tasks/*
+!logs/training_tasks/.gitkeep
+src/inference/chunks_temp.json
 model_assets/workspaces/*
 !model_assets/workspaces/.gitkeep
-hubert/checkpoint_best_legacy_500.pt
-configs/config.json
-configs/diffusion.yaml
 filelists/test.txt
 filelists/train.txt
 filelists/val.txt

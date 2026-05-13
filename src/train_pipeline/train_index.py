@@ -7,7 +7,7 @@ from src import utils
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--root_dir", type=str, default="training_data/processed/44k", help="path to root dir"
+        "--root_dir", type=str, default="model_assets/workspaces/44k/training_data/processed/44k", help="path to root dir"
     )
     parser.add_argument('-c', '--config', type=str, default="./model_assets/workspaces/44k/config.json",
                     help='JSON file for configuration')

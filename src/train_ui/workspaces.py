@@ -27,13 +27,6 @@ from src.train_ui.workspace import (
 )
 
 
-RAW_DATASET_PARENT = ROOT / "training_data/source"
-
-
-def ensure_raw_dataset_parent():
-    RAW_DATASET_PARENT.mkdir(parents=True, exist_ok=True)
-
-
 def raw_dataset_display_name(dataset_name: str):
     return build_raw_dataset_display_name(sanitize_dataset_name(dataset_name) or "")
 
@@ -42,6 +35,8 @@ def ensure_model_workspace_dirs(model_name: str):
     root = model_root_dir(model_name)
     (root / "diffusion").mkdir(parents=True, exist_ok=True)
     (root / "filelists").mkdir(parents=True, exist_ok=True)
+    (root / "training_data/source").mkdir(parents=True, exist_ok=True)
+    (root / "training_data/processed/44k").mkdir(parents=True, exist_ok=True)
     return root
 
 
@@ -102,19 +97,15 @@ def is_model_workspace_candidate(path: Path) -> bool:
 def scan_model_workspaces():
     logs_dir = ROOT / "model_assets/workspaces"
     logs_dir.mkdir(parents=True, exist_ok=True)
-    ensure_raw_dataset_parent()
     models = set()
     for child in sorted(logs_dir.iterdir()):
-        if child.name == "webui_tasks" or not is_model_workspace_candidate(child):
+        if not is_model_workspace_candidate(child):
             continue
         workspace = load_model_workspace(child.name)
         expected_dataset_name = infer_workspace_dataset_name(child.name)
         if workspace is None or workspace.get("dataset_name") != expected_dataset_name:
             workspace = save_model_workspace(child.name, expected_dataset_name)
         models.add(workspace["model_name"])
-    for child in sorted(RAW_DATASET_PARENT.iterdir()):
-        if child.is_dir() and child.name != "webui_tasks":
-            models.add(infer_workspace_dataset_name(child.name))
     models = sorted(models)
     if not models:
         models = ["default_model"]
@@ -174,22 +165,14 @@ def render_model_workspace_summary(model_name: str):
 
 
 def scan_dataset_candidates():
-    ensure_raw_dataset_parent()
-    candidates = []
-    for child in sorted(RAW_DATASET_PARENT.iterdir()):
-        if child.is_dir() and has_raw_dataset_wavs(child):
-            candidates.append(child.name)
-    if not candidates:
-        candidates.append("default_dataset")
-    return candidates
+    return scan_model_workspaces()
 
 
 def suggest_next_dataset_name():
-    ensure_raw_dataset_parent()
     index = 1
     while True:
-        candidate = f"speak {index}"
-        if not (RAW_DATASET_PARENT / candidate).exists():
+        candidate = f"speaker_{index}"
+        if not model_root_dir(candidate).exists():
             return candidate
         index += 1
 
@@ -285,16 +268,6 @@ def delete_dataset_directory(dataset_name: str):
             gr.update(value=dataset_name),
         )
 
-    if dataset_dir == RAW_DATASET_PARENT:
-        return (
-            render_dataset_import_result("禁止删除 training_data/source 父目录。"),
-            gr.update(value=dataset_name),
-            render_dataset_file_list(dataset_name),
-            gr.update(value=dataset_name),
-            gr.update(value=current_train_dir),
-            gr.update(value=dataset_name),
-        )
-
     shutil.rmtree(dataset_dir)
     return (
         render_dataset_import_result(f"已删除模型数据目录：{dataset_dir.relative_to(ROOT).as_posix()}"),
@@ -321,7 +294,7 @@ def prepare_delete_dataset(dataset_name: str):
     message = (
         f"确认删除：{dataset_dir.relative_to(ROOT).as_posix()}\n\n"
         f"该目录下共有 {wav_count} 个 wav 文件。\n"
-        "这个操作不会删除 model_assets/workspaces 下的模型工作区。"
+        "这个操作只删除当前工作区内的原始 wav，不删除模型权重和处理后特征。"
     )
     return (
         message,
@@ -448,7 +421,7 @@ def prepare_delete_model_workspace_action(
     train_dir = ROOT / default_train_dir_for_dataset(dataset_name)
     if not model_dir.exists() and not raw_dir.exists() and not train_dir.exists():
         return (
-            f"**model_assets/workspaces/{model_name}**、**{resolve_raw_dataset_dir(dataset_name).as_posix()}**、**{default_train_dir_for_dataset(dataset_name)}** 都不存在，无需删除。",
+            f"**model_assets/workspaces/{model_name}** 不存在，无需删除。",
             gr.update(visible=False),
             gr.update(value=""),
             gr.update(value=""),
@@ -457,10 +430,8 @@ def prepare_delete_model_workspace_action(
         f"确认删除：{model_dir.relative_to(ROOT).as_posix()}\n\n"
         f"当前模型：{model_name}\n"
         f"绑定模型数据目录：{dataset_name}\n\n"
-        "这个操作会一并删除以下内容：\n"
-        f"- model_assets/workspaces/{model_name}\n"
-        f"- {resolve_raw_dataset_dir(dataset_name).as_posix()}\n"
-        f"- {default_train_dir_for_dataset(dataset_name)}"
+        "这个操作会删除整个模型工作区，包括模型权重、配置、原始语音数据和处理后特征：\n"
+        f"- model_assets/workspaces/{model_name}"
     )
     return (
         message,
@@ -486,10 +457,9 @@ def delete_model_workspace_action(
     train_dir = ROOT / default_train_dir_for_dataset(dataset_name)
     deleted_targets = []
 
-    for target in (model_dir, raw_dir, train_dir):
-        if target.exists():
-            shutil.rmtree(target)
-            deleted_targets.append(target.relative_to(ROOT).as_posix())
+    if model_dir.exists():
+        shutil.rmtree(model_dir)
+        deleted_targets.append(model_dir.relative_to(ROOT).as_posix())
 
     if not deleted_targets:
         next_model = resolve_model_choice("default_model")
@@ -505,7 +475,7 @@ def delete_model_workspace_action(
             speech_encoder_value_update_fn(load_model_speech_encoder_fn(next_model)),
             render_model_workspace_summary(next_model),
             render_dataset_import_result(
-                f"model_assets/workspaces/{model_name}、{resolve_raw_dataset_dir(dataset_name).as_posix()}、{default_train_dir_for_dataset(dataset_name)} 都不存在，无需删除。"
+                f"model_assets/workspaces/{model_name} 不存在，无需删除。"
             ),
         )
     remaining_models = scan_model_workspaces()

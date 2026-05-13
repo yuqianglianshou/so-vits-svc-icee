@@ -325,8 +325,8 @@ http://127.0.0.1:6006
 当前推荐：
 
 ```text
-training_data/source/<model_name>/*.wav
-training_data/processed/44k/<model_name>/
+model_assets/workspaces/<model_name>/training_data/source/*.wav
+model_assets/workspaces/<model_name>/training_data/processed/44k/
 ```
 
 不要把多个说话人的目录混在同一个模型目录里。

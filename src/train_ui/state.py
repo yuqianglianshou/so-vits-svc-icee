@@ -51,9 +51,11 @@ def count_nonempty_lines(path: Path):
         return 0
 
 
-def collect_stage_state(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "training_data/processed/44k"):
+def collect_stage_state(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str | None = None):
     """汇总训练阶段状态，供进度区和按钮状态统一使用。"""
     model_name = sanitize_model_name(model_name)
+    if not train_dir:
+        train_dir = f"model_assets/workspaces/{model_name}/training_data/processed/44k"
     raw_relative_dir = resolve_raw_dataset_dir(raw_dir)
     raw_root = ROOT / raw_relative_dir
     train_root = ROOT / train_dir
@@ -92,17 +94,17 @@ def collect_stage_state(model_name: str = "44k", raw_dir: str = "default_dataset
         stage_lines.append(compact_stage_line("1. 重采样", "未满足前置条件", "缺少原始 wav"))
         stage_items.append(("1. 重采样", "未满足前置条件", "缺少原始 wav"))
         next_step = f"先准备 {raw_relative_dir.as_posix()} 数据集。"
-        button_state["resample"] = {"value": f"1. 重采样到 {train_dir}", "interactive": False}
+        button_state["resample"] = {"value": "1. 重采样到工作区训练目录", "interactive": False}
     elif train_wavs > 0:
         stage_lines.append(compact_stage_line("1. 重采样", "已完成", f"{train_wavs} 个 wav"))
         stage_items.append(("1. 重采样", "已完成", f"{train_wavs} 个 wav"))
         next_step = None
-        button_state["resample"] = {"value": f"1. 重采样到 {train_dir}（已完成）", "interactive": True}
+        button_state["resample"] = {"value": "1. 重采样到工作区训练目录（已完成）", "interactive": True}
     else:
         stage_lines.append(compact_stage_line("1. 重采样", "可执行", f"{raw_wavs} 个 wav，直接开始"))
         stage_items.append(("1. 重采样", "可执行", f"{raw_wavs} 个 wav，直接开始"))
         next_step = f"执行第 1 步：重采样到 {train_dir}。"
-        button_state["resample"] = {"value": f"1. 重采样到 {train_dir}", "interactive": True}
+        button_state["resample"] = {"value": "1. 重采样到工作区训练目录", "interactive": True}
 
     config_ready = (
         has_config

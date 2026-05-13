@@ -29,11 +29,11 @@ def sanitize_dataset_name(dataset_name: str):
 
 
 def resolve_raw_dataset_dir(dataset_name: str):
-    """把训练语音数据名映射到 training_data/source 下的真实目录。"""
+    """把训练语音数据名映射到模型工作区内的原始语音目录。"""
     name = sanitize_dataset_name(dataset_name)
     if not name:
         name = "default_dataset"
-    return Path("training_data/source") / name
+    return Path("model_assets/workspaces") / name / "training_data/source"
 
 
 def default_train_dir_for_dataset(dataset_name: str):
@@ -41,7 +41,7 @@ def default_train_dir_for_dataset(dataset_name: str):
     name = sanitize_dataset_name(dataset_name)
     if not name:
         name = "default_dataset"
-    return f"training_data/processed/44k/{name}"
+    return f"model_assets/workspaces/{name}/training_data/processed/44k"
 
 
 def sanitize_model_name(model_name: str):

@@ -23,9 +23,9 @@ def assert_not_contains(text: str, needle: str, msg: str) -> None:
 
 
 def check_infer_unpacking() -> None:
-    infer_tool = read_text("inference/infer_tool.py")
-    flask_api = read_text("services/flask_api.py")
-    flask_api_full = read_text("services/flask_api_full_song.py")
+    infer_tool = read_text("src/inference/infer_tool.py")
+    flask_api = read_text("src/services/flask_api.py")
+    flask_api_full = read_text("src/services/flask_api_full_song.py")
 
     assert_contains(
         infer_tool,
@@ -45,7 +45,7 @@ def check_infer_unpacking() -> None:
 
 
 def check_speaker_resolution() -> None:
-    infer_tool = read_text("inference/infer_tool.py")
+    infer_tool = read_text("src/inference/infer_tool.py")
 
     assert_contains(
         infer_tool,
@@ -65,7 +65,7 @@ def check_speaker_resolution() -> None:
 
 
 def check_ddp_sampler() -> None:
-    train = read_text("train_pipeline/train.py")
+    train = read_text("src/train_pipeline/train.py")
 
     assert_contains(
         train,
@@ -85,7 +85,7 @@ def check_ddp_sampler() -> None:
 
 
 def check_preprocess_parallel() -> None:
-    preprocess = read_text("train_pipeline/preprocess_hubert_f0.py")
+    preprocess = read_text("src/train_pipeline/preprocess_hubert_f0.py")
 
     assert_contains(
         preprocess,

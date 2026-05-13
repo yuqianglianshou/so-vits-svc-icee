@@ -126,7 +126,7 @@ from src.utils import get_supported_speech_encoders
 CODE_ROOT = Path(__file__).resolve().parent
 ROOT = CODE_ROOT.parent
 TRAIN_PAGE_CSS = (CODE_ROOT / "train_ui" / "page.css").read_text(encoding="utf-8")
-TASK_LOG_DIR = ROOT / "model_assets/workspaces" / "webui_tasks"
+TASK_LOG_DIR = ROOT / "logs/training_tasks"
 TASK_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 ACTIVE_TASK = {
@@ -181,8 +181,6 @@ PIPELINE_LABELS = {
     "pipeline_prep": "一键执行 1-3 步",
     "pipeline_train_main": "一键执行到主模型训练",
 }
-
-RAW_DATASET_PARENT = ROOT / "training_data/source"
 
 PRETRAIN_ASSETS = {
     "contentvec_hf": {
@@ -539,6 +537,25 @@ def has_active_task() -> bool:
     return (proc is not None and proc.poll() is None) or (thread is not None and thread.is_alive())
 
 
+def reset_inactive_task_state():
+    if has_active_task():
+        return
+    ACTIVE_TASK.update(
+        {
+            "name": None,
+            "proc": None,
+            "log_path": None,
+            "display_log_path": None,
+            "cmd": None,
+            "started_at": None,
+            "thread": None,
+            "pipeline_name": None,
+            "stage_label": None,
+            "stop_requested": False,
+        }
+    )
+
+
 def active_task_block_message(action: str) -> str:
     task_display = ACTIVE_TASK["pipeline_name"] or ACTIVE_TASK["name"] or current_stage_label()
     return f"当前正在执行：{task_display}；请先停止当前任务，再{action}。"
@@ -603,6 +620,7 @@ def load_model_speech_encoder(model_name: str):
 
 
 def create_model_workspace(new_model_name: str, current_dataset_name: str):
+    reset_inactive_task_state()
     return create_model_workspace_action(
         new_model_name,
         current_dataset_name,
@@ -614,6 +632,7 @@ def create_model_workspace(new_model_name: str, current_dataset_name: str):
 
 
 def switch_model_workspace(selected_model_name: str, current_model_name: str, current_dataset_name: str, current_train_dir: str, current_sync_token: str):
+    reset_inactive_task_state()
     return switch_model_workspace_action(
         selected_model_name,
         current_model_name,
@@ -630,6 +649,7 @@ def switch_model_workspace(selected_model_name: str, current_model_name: str, cu
 
 
 def prepare_delete_model_workspace(selected_model_name: str):
+    reset_inactive_task_state()
     return prepare_delete_model_workspace_action(
         selected_model_name,
         has_active_task_fn=has_active_task,
@@ -729,6 +749,7 @@ def bind_workspace_dataset(model_name: str, dataset_name: str):
 
 
 def prepare_delete_dataset(dataset_name: str):
+    reset_inactive_task_state()
     if has_active_task():
         return (
             "",
@@ -752,12 +773,12 @@ def detect_file(path_str: str):
 def append_pipeline_log(log_path: Path, message: str):
     with log_path.open("a", encoding="utf-8") as log_file:
         log_file.write(message.rstrip() + "\n")
-def render_stage_judgement(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "training_data/processed/44k"):
+def render_stage_judgement(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str | None = None):
     state = collect_stage_state(model_name, raw_dir, train_dir)
     return render_stage_judgement_html(state)
 
 
-def render_button_updates(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "training_data/processed/44k"):
+def render_button_updates(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str | None = None):
     stage_state = collect_stage_state(model_name, raw_dir, train_dir)
     task_name = ACTIVE_TASK["name"]
     pipeline_name = ACTIVE_TASK["pipeline_name"]
@@ -796,7 +817,7 @@ def current_stage_label():
     return TASK_STAGE_LABELS.get(task_name, task_name)
 
 
-def current_task_feedback(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "training_data/processed/44k"):
+def current_task_feedback(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str | None = None):
     proc = ACTIVE_TASK["proc"]
     task_name = ACTIVE_TASK["name"]
     log_path = resolve_task_log_path(ACTIVE_TASK)
@@ -817,7 +838,7 @@ def current_task_feedback(model_name: str = "44k", raw_dir: str = "default_datas
     return build_task_feedback(stage_label, task_display, str(log_path), False, exit_code, next_step_line)
 
 
-def render_stage_alert(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "training_data/processed/44k"):
+def render_stage_alert(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str | None = None):
     proc = ACTIVE_TASK["proc"]
     task_name = ACTIVE_TASK["name"]
     stage_label = current_stage_label()
@@ -826,7 +847,7 @@ def render_stage_alert(model_name: str = "44k", raw_dir: str = "default_dataset"
     return build_stage_alert_text(task_name, stage_label, is_running, succeeded)
 
 
-def render_preflight_check(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str = "training_data/processed/44k"):
+def render_preflight_check(model_name: str = "44k", raw_dir: str = "default_dataset", train_dir: str | None = None):
     return render_preflight_check_html(
         model_name,
         raw_dir,
@@ -1277,7 +1298,7 @@ with gr.Blocks(
                 elem_classes=["runtime-banner-box"],
             )
             with gr.Row():
-                resample_btn = gr.Button("1. 重采样到 training_data/processed/44k", elem_classes=["primary-action"])
+                resample_btn = gr.Button("1. 重采样到工作区训练目录", elem_classes=["primary-action"])
                 config_btn = gr.Button("2. 生成配置与文件列表", elem_classes=["primary-action"])
             with gr.Row():
                 preprocess_btn = gr.Button("3. 提取特征", elem_classes=["primary-action"])

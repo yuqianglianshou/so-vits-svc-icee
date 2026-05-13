@@ -482,7 +482,7 @@ def change_rms(data1, sr1, data2, sr2, rate):  # 1是输入音频，2是输出�
     )
     return data2
 
-def train_index(spk_name,root_dir = "training_data/processed/44k/"):  #from: RVC https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI
+def train_index(spk_name,root_dir = "model_assets/workspaces/44k/training_data/processed/44k/"):  #from: RVC https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI
     n_cpu = cpu_count()
     print("The feature index is constructing.")
     exp_dir = root_dir

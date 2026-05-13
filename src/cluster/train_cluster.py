@@ -53,7 +53,7 @@ def train_cluster(in_dir, n_clusters, use_minibatch=True, verbose=False,use_gpu=
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=Path, default="./training_data/processed/44k",
+    parser.add_argument('--dataset', type=Path, default="./model_assets/workspaces/44k/training_data/processed/44k",
                         help='path of training data directory')
     parser.add_argument('--output', type=Path, default="model_assets/workspaces/44k",
                         help='path of model output directory')

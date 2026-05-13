@@ -192,7 +192,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--device', type=str, default=None)
     parser.add_argument(
-        "--in_dir", type=str, default="training_data/processed/44k", help="path to input dir"
+        "--in_dir", type=str, default="model_assets/workspaces/44k/training_data/processed/44k", help="path to input dir"
     )
     parser.add_argument(
         "--config", type=str, default="model_assets/workspaces/44k/config.json", help="path to main config"
