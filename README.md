@@ -50,65 +50,6 @@ python -m src.app_infer
 - Linux + NVIDIA GPU 理论上可用，但请自行验证。
 - macOS 更适合页面、推理或轻量检查，不建议作为正式训练平台。
 
-## 快速安装
-
-```powershell
-git clone https://github.com/yuqianglianshou/so-vits-svc-icee.git
-cd so-vits-svc-icee
-py -3.11 -m venv .venv311
-.venv311\Scripts\activate
-python -m pip install --upgrade pip setuptools wheel
-pip install -U torch torchaudio --index-url https://download.pytorch.org/whl/cu118
-pip install -r requirements.txt
-```
-
-验证 CUDA：
-
-```powershell
-python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no cuda')"
-```
-
-如果输出 `True` 和显卡名称，说明 GPU 环境基本可用。
-
-## 启动页面
-
-训练页：
-
-```powershell
-python -m src.app_train
-```
-
-推理页：
-
-```powershell
-python -m src.app_infer
-```
-
-Windows 也可以双击：
-
-```text
-launchers/启动训练界面.bat
-launchers/启动推理界面.bat
-```
-
-训练页负责：
-
-- 检查训练前依赖与底模
-- 自动获取或导入依赖文件
-- 创建和切换模型工作区
-- 导入训练语音
-- 执行训练 1-6 步
-- 打开 TensorBoard
-- 进入推理页
-
-推理页负责：
-
-- 从训练工作区或已导入模型加载模型
-- 加载可选扩散模型和音色增强文件
-- 切换质量模式
-- 转换输入音频
-- 导出运行摘要
-
 ## 界面预览
 
 训练页：
@@ -118,24 +59,6 @@ launchers/启动推理界面.bat
 推理页：
 
 ![推理页](./images/推理页.png)
-
-## 训练前依赖
-
-训练页会检查并引导补齐这些文件：
-
-```text
-model_assets/dependencies/encoders/contentvec_hf/config.json
-model_assets/dependencies/encoders/contentvec_hf/model.safetensors
-model_assets/dependencies/encoders/rmvpe.pt
-model_assets/dependencies/base_models/44k/G_0.pth
-model_assets/dependencies/base_models/44k/D_0.pth
-model_assets/dependencies/base_models/44k/diffusion/model_0.pt
-model_assets/dependencies/vocoders/nsf_hifigan/
-```
-
-ContentVec HF 必须同时有 `config.json` 和 `model.safetensors`。训练页会显示具体缺哪个文件。
-
-推荐优先在训练页中点击“自动获取当前依赖”；失败时再按页面链接手动下载并导入。
 
 ## 目录说明
 
@@ -150,6 +73,31 @@ model_assets/workspaces/     # 训练工作区，包含模型产物和对应训�
 model_assets/imported_models/# 已导入推理模型
 docs/                        # 文档
 ```
+```text
+src/
+├── app_train.py          # 训练页入口
+├── app_infer.py          # 推理页入口
+├── train_ui/             # 训练页 UI、状态、任务和启动辅助
+├── infer_ui/             # 推理页模型、转换、导出和文本辅助
+├── train_pipeline/       # 重采样、配置生成、特征提取、训练
+├── inference/            # 推理主逻辑
+├── diffusion/            # 扩散模型
+├── vencoder/             # ContentVec 等内容编码器
+└── vdecoder/             # 声码器
+```
+
+核心数据目录：
+
+```text
+inference_data/inputs/            # 推理输入
+inference_data/outputs/           # 推理输出
+logs/training_tasks/              # 训练页任务日志
+model_assets/dependencies/        # 训练前依赖与底模
+model_assets/workspaces/          # 训练工作区，包含训练产物和对应训练数据
+model_assets/imported_models/     # 已导入推理模型
+```
+
+
 
 一个说话人对应一个模型工作区：
 
