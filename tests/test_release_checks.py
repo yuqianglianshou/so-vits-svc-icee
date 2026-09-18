@@ -115,7 +115,19 @@ def test_run_checks_accepts_minimal_valid_repository(tmp_path: Path):
     for relative_path in REQUIRED_PATHS:
         path = tmp_path / relative_path
         path.parent.mkdir(parents=True, exist_ok=True)
-        content = "{}" if path.suffix == ".json" else ""
+        if path.suffix == ".json":
+            content = "{}"
+        elif path.suffix == ".bat":
+            content = "\n".join(
+                (
+                    '"%VENV_PYTHON%" --version',
+                    'set "APP_EXIT_CODE=%ERRORLEVEL%"',
+                    'echo docs\\06_常见问题与排错.md',
+                    'exit /b %APP_EXIT_CODE%',
+                )
+            )
+        else:
+            content = ""
         path.write_text(content, encoding="utf-8")
 
     assert run_checks(tmp_path, tracked_files=[]) == []

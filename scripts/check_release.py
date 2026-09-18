@@ -25,6 +25,11 @@ REQUIRED_PATHS = (
     "launchers/启动推理界面.bat",
     "launchers/启动tensorboard.bat",
 )
+WINDOWS_LAUNCHERS = (
+    "launchers/启动训练界面.bat",
+    "launchers/启动推理界面.bat",
+    "launchers/启动tensorboard.bat",
+)
 
 FORBIDDEN_SUFFIXES = (
     ".pth",
@@ -141,6 +146,27 @@ def check_forbidden_text(
     return errors
 
 
+def check_windows_launchers(root: Path, paths: Sequence[str]) -> list[str]:
+    """检查 Windows 启动器是否保留必要的诊断信息和退出状态。"""
+    required_fragments = {
+        '"%VENV_PYTHON%" --version': "未输出 Python 版本",
+        'set "APP_EXIT_CODE=%ERRORLEVEL%"': "未保存应用退出码",
+        "docs\\06_常见问题与排错.md": "未指向排错文档",
+        "exit /b %APP_EXIT_CODE%": "未返回应用退出码",
+    }
+    errors: list[str] = []
+    for relative_path in paths:
+        path = root / relative_path
+        if not path.exists():
+            errors.append(f"{relative_path}: 启动器不存在")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for fragment, message in required_fragments.items():
+            if fragment not in text:
+                errors.append(f"{relative_path}: {message}")
+    return errors
+
+
 def _git_tracked_files(root: Path) -> list[str]:
     """读取 Git 跟踪清单，Git 不可用时把原因交给调用方展示。"""
     result = subprocess.run(
@@ -175,6 +201,7 @@ def run_checks(root: Path, tracked_files: Sequence[str] | None = None) -> list[s
             errors.append(f"无法读取 Git 跟踪文件: {exc}")
             tracked_files = []
     errors.extend(check_forbidden_tracked_files(tracked_files))
+    errors.extend(check_windows_launchers(root, WINDOWS_LAUNCHERS))
     template_dir = root / ".github" / "ISSUE_TEMPLATE"
     if template_dir.exists():
         template_files = sorted(path for path in template_dir.iterdir() if path.is_file())

@@ -24,6 +24,6 @@ jobs:
       - name: Test release checks
         env:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
-        run: python -m pytest tests/test_release_checks.py -q
+        run: python -m pytest tests/test_release_checks.py tests/test_launchers.py -q
       - name: Validate release contents
         run: python scripts/check_release.py
