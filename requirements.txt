@@ -1,31 +1,77 @@
+# Unified dependency list for macOS and Windows.
+# macOS keeps a compatible setuptools to restore pkg_resources for librosa 0.9.1.
+setuptools==68.2.2; platform_system == "Darwin"
+
+# WebUI / API
+# ffmpeg-python: invoke local ffmpeg for audio/video conversion commands
 ffmpeg-python
+# Flask / Flask_Cors: kept for legacy API and compatibility routes
 Flask
 Flask_Cors
-gradio>=3.7.0
+# Gradio: main UI framework for training and inference pages
+# FastAPI / Starlette are pinned to avoid Gradio 4.44.1 breakage with newer Starlette 1.x.
+gradio==4.44.1
+fastapi==0.112.2
+starlette==0.38.6
+# Jinja2 is kept in the Gradio-supported major line for template rendering.
+jinja2==3.1.6
+# huggingface_hub: download and resolve some model assets and dependencies
+huggingface_hub==0.36.2
+
+# Core numerical / audio stack
+# numpy / scipy: core numerical and signal-processing stack
 numpy==1.23.5
+# numba / llvmlite: acceleration dependencies for librosa and related audio tooling
+numba==0.59.1
+llvmlite==0.42.0
+# pyworld / praat-parselmouth: pitch-related processing
 pyworld
 scipy==1.10.0
+# SoundFile / librosa: wav I/O, resampling, and feature extraction
 SoundFile==0.12.1
+librosa==0.9.1
+# soxr: resampling dependency used by the transformers audio import path
+soxr
+praat-parselmouth
+# scikit-maad: helper library for audio analysis
+scikit-maad
+# faiss-cpu: feature indexing and retrieval augmentation
+faiss-cpu
+
+# PyTorch stack
+# torch / torchaudio: primary dependencies for training, inference, and audio tensors
 torch
 torchaudio
+# torchcrepe: PyTorch implementation of the optional crepe F0 extractor
 torchcrepe
+
+# Training / inference dependencies
+# transformers: current ContentVec/HF path and related model tooling
+transformers
+# einops / local_attention: tensor reshaping and attention modules used by the model
+einops
+local_attention
+
+# Utilities
+# tqdm / rich / loguru: progress, terminal rendering, and logging
 tqdm
 rich
 loguru
-scikit-maad
-praat-parselmouth
-onnx
-onnxsim
-onnxoptimizer
-fairseq==0.12.2
-librosa==0.9.1
+# tensorboard: training monitoring
 tensorboard
-tensorboardX
-transformers
+# edge_tts / langdetect: speech and language helpers for the inference page
 edge_tts
 langdetect
+# pyyaml: configuration file I/O
 pyyaml
+# pynvml: GPU status queries
 pynvml
-faiss-cpu
-einops
-local_attention
+
+# Optional ONNX export toolchain
+# onnx / onnxoptimizer / onnxsim: install only when exporting or optimizing ONNX models
+# onnx
+# onnxoptimizer
+# onnxsim; platform_system != "Darwin"
+# ONNX Runtime: retained for the existing ONNX inference path
+onnxruntime; platform_system != "Windows"
+onnxruntime-gpu; platform_system == "Windows"
