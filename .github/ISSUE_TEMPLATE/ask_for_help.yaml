@@ -1,124 +1,75 @@
-name: 请求帮助
-description: 遇到了无法自行解决的错误
-title: '[Help]: '
-labels: [ "help wanted" ]
-
+name: 安装与使用帮助
+description: 安装、依赖、训练或推理流程无法继续
+title: "[Help] "
+labels: ["help wanted"]
 body:
   - type: markdown
     attributes:
       value: |
-        #### 提问前请先自己去尝试解决，比如查看[本仓库wiki](https://github.com/svc-develop-team/so-vits-svc/wiki)，也可以借助chatgpt或一些搜索引擎（谷歌/必应/New Bing/StackOverflow等等）。如果实在无法自己解决再发issue，在提issue之前，请先了解《[提问的智慧](https://github.com/ryanhanwu/How-To-Ask-Questions-The-Smart-Way/blob/main/README-zh_CN.md)》。
-        ---
-        ### 什么样的issue会被直接close
-        1. 伸手党
-        2. 一键包/环境包相关
-        3. 提供的信息不全
-        4. 低级的如缺少依赖而导致无法运行的问题
-        4. 所用的数据集是无授权数据集(游戏角色/二次元人物暂不归为此类，但是训练时候也要小心谨慎。如果能联系到官方，必须先和官方联系并核实清楚)
-        ---
-
+        请先阅读快速开始、环境与兼容性、模型依赖清单和常见问题。描述你卡住的具体步骤，避免只写“不能用”。
   - type: checkboxes
-    id: Clause
+    id: read_docs
     attributes:
-      label: 请勾选下方的确认框。
+      label: 文档确认
       options:
-        - label: "我已仔细阅读[README.md](https://github.com/svc-develop-team/so-vits-svc/blob/4.0/README_zh_CN.md)和[wiki中的Quick solution](https://github.com/svc-develop-team/so-vits-svc/wiki/Quick-solution)。"
+        - label: 我已阅读与当前步骤对应的文档和常见问题。
           required: true
-        - label: "我已通过各种搜索引擎排查问题，我要提出的问题并不常见。"
+        - label: 我会删除日志中的令牌、用户名和私人路径等敏感信息。
           required: true
-        - label: "我未在使用由第三方用户提供的一键包/环境包。"
-          required: true
-
-  - type: markdown
-    attributes:
-      value: |
-        # 请根据实际使用环境填写以下信息
-
   - type: input
-    id: System
+    id: revision
     attributes:
-      label: 系统平台版本号
-      description: Windows执行`winver` | Linux执行`uname -a`
+      label: 项目版本或 commit
     validations:
       required: true
-
   - type: input
-    id: GPU
+    id: system
     attributes:
-      label: GPU 型号
-      description: 执行`nvidia-smi`
+      label: 操作系统、GPU 与显存
     validations:
       required: true
-
   - type: input
-    id: PythonVersion
+    id: runtime
     attributes:
-      label: Python版本
-      description: 执行`python -V`
+      label: Python、PyTorch 与 CUDA
     validations:
       required: true
-
-  - type: input
-    id: PyTorchVersion
-    attributes:
-      label: PyTorch版本
-      description: 执行`pip show torch`
-    validations:
-      required: true
-
   - type: dropdown
-    id: Branch
+    id: stage
     attributes:
-      label: sovits分支
+      label: 当前步骤
       options:
-        - 4.0(默认)
-        - 4.0-v2
-        - 3.0-32k
-        - 3.0-48k
+        - 安装依赖
+        - 启动训练页
+        - 准备模型依赖
+        - 导入数据
+        - 重采样
+        - 生成配置与列表
+        - 提取特征
+        - 主模型训练
+        - 扩散或索引训练
+        - 启动推理页
+        - 加载模型或转换音频
     validations:
       required: true
-
-  - type: input
-    id: DatasetSource
-    attributes:
-      label: 数据集来源（用于判断数据集质量）
-      description: 如：UVR处理过的vtb直播音频、录音棚录制
-    validations:
-      required: true
-
-  - type: input
-    id: WhereOccurs
-    attributes:
-      label: 出现问题的环节或执行的命令
-      description: 如：预处理、训练、`python preprocess_hubert_f0.py`
-    validations:
-      required: true
-
   - type: textarea
-    id: Description
+    id: message
     attributes:
-      label: 问题描述
-      description: 在这里描述自己的问题，越详细越好
+      label: 页面或终端提示
+      description: 原样填写错误信息，并说明任务日志文件的位置。
     validations:
       required: true
-
   - type: textarea
-    id: Log
+    id: attempts
     attributes:
-      label: 日志
-      description: 将从执行命令到执行完毕输出的所有信息（包括你所执行的命令）粘贴到[pastebin.com](https://pastebin.com/)并把剪贴板链接贴到这里，日志量少的话也可以直接贴在下面
-      render: python
+      label: 已经尝试的处理
+      description: 列出执行过的命令和结果，避免其他人重复建议。
     validations:
       required: true
-
   - type: textarea
-    id: ValidOneClick
+    id: logs
     attributes:
-      label: 截图`so-vits-svc`、`logs/44k`文件夹并粘贴到此处
+      label: 完整日志
+      render: shell
     validations:
       required: true
-
-  - type: textarea
-    id: Supplementary
-    attributes:
-      label: 补充说明

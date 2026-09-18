@@ -1,1 +1,13 @@
+# 默认把文本文件统一成 LF，减少跨平台换行噪音。
 * text=auto eol=lf
+# Windows 启动脚本保留 CRLF，双击执行更稳。
+*.bat text eol=crlf
+
+# 这些训练/推理资产按二进制处理，避免 Git 尝试文本 diff。
+*.pth binary
+*.pt binary
+*.pkl binary
+*.onnx binary
+*.wav binary
+*.png binary
+*.zip binary
