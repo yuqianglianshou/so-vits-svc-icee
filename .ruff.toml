@@ -10,6 +10,7 @@ exclude = [
   "docs/notebooks",
 ]
 
+[lint]
 # 先保留基础静态检查：风格、明显错误、导入顺序。
 select = ["E", "F", "I"]
 

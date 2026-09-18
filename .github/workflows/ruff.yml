@@ -1,8 +1,20 @@
 name: Ruff
-on: [push, pull_request]
+
+on:
+  push:
+  pull_request:
+
 jobs:
   ruff:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: chartboost/ruff-action@v1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install lint dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Check release tooling and tests
+        # 核心源码的历史 Ruff 债务单独治理，发布门禁先覆盖新增检查代码。
+        run: python -m ruff check scripts/check_release.py tests

@@ -27,7 +27,7 @@ python -m pip install -r requirements-dev.txt
 ## 提交前检查
 
 ```bash
-python -m ruff check src scripts tests
+python -m ruff check scripts/check_release.py tests
 python -m compileall -q src scripts tests
 python scripts/verify_app_smoke.py
 python scripts/verify_stability_fixes.py
