@@ -3,6 +3,10 @@
 这份文档专门处理 Windows + NVIDIA GPU 环境下的常见问题。正常操作流程请看：
 
 - [Windows 安装、训练与推理指南](01_Windows安装训练推理指南.md)
+- [环境与兼容性](07_环境与兼容性.md)
+- [模型依赖清单](08_模型依赖清单.md)
+
+每个问题按“现象 → 检查 → 处理”阅读。提交 Issue 时请同时提供项目版本、环境、复现步骤和完整日志。
 
 ## 1. 安装与环境问题
 
@@ -107,11 +111,7 @@ python -c "import torch; print(torch.__version__); print(torch.cuda.is_available
 
 1. 确认电脑是 NVIDIA 显卡。
 2. 更新 NVIDIA 驱动。
-3. 确认安装的是 CUDA 版 PyTorch：
-
-```powershell
-pip install -U torch torchaudio --index-url https://download.pytorch.org/whl/cu118
-```
+3. 在 [PyTorch 官方安装页面](https://pytorch.org/get-started/locally/)重新选择适合当前驱动和 CUDA 的 PyTorch 安装命令。
 
 4. 重新打开 PowerShell，激活 `.venv311` 后再验证。
 
@@ -144,6 +144,8 @@ nvidia-smi
 3. 先只跑主模型训练，扩散训练后面再补。
 4. 关闭浏览器游戏、视频软件、其他深度学习进程。
 5. 重启 Python / 训练页，释放残留显存。
+
+项目当前不承诺统一的最低显存，不能仅凭显卡容量判断某个 batch size 一定可用。
 
 ## 3. 训练前依赖与底模问题
 

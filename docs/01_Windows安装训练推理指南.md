@@ -2,6 +2,8 @@
 
 “怎么从零跑起来”：安装环境、启动训练页、补齐依赖、导入数据、训练、打开推理页、做首次验证。
 
+如果只想先跑通一次，请从 [快速开始](00_快速开始.md) 开始。环境支持范围以 [环境与兼容性](07_环境与兼容性.md) 为准，模型文件路径以 [模型依赖清单](08_模型依赖清单.md) 为准。
+
 遇到报错或现象异常时，请看：
 
 - [Windows 常见问题排查](02_Windows常见问题排查.md)
@@ -18,7 +20,7 @@
 建议准备：
 
 1. Windows 10/11 64 位。
-2. NVIDIA 显卡，显存 >= 8GB。
+2. NVIDIA 显卡；显存需求取决于 batch size、音频长度和训练阶段，当前不设统一最低值。
 3. 最新 NVIDIA 驱动。
 4. Python 3.11。
 5. Git。
@@ -61,11 +63,11 @@ py -3.11 -m venv .venv311
 
 # 升级 pip 和基础安装工具
 python -m pip install --upgrade pip setuptools wheel
+```
 
-# 安装支持 CUDA 11.8 的 PyTorch 和 torchaudio
-pip install -U torch torchaudio --index-url https://download.pytorch.org/whl/cu118
+打开 [PyTorch 官方安装页面](https://pytorch.org/get-started/locally/)，根据当前系统和驱动选择 CUDA 版 PyTorch 与 torchaudio 安装命令。该命令成功后，再执行：
 
-# 安装项目所需的其他 Python 依赖
+```powershell
 pip install -r requirements.txt
 ```
 
@@ -112,21 +114,7 @@ python -m src.app_train
 
 进入训练页后，先打开“训练前依赖与底模”区域。推荐优先用页面里的“自动获取当前依赖”，失败时再手动下载并导入。
 
-当前训练页会检查：
-
-1. ContentVec HF 模型目录：
-   - 目录：`model_assets/dependencies/encoders/contentvec_hf/`
-   - 必需文件：`config.json` （已经内置）
-   - 必需文件：`model.safetensors`
-2. RMVPE：
-   - `model_assets/dependencies/encoders/rmvpe.pt`
-3. So-VITS 主模型底模：
-   - `model_assets/dependencies/base_models/44k/G_0.pth`
-   - `model_assets/dependencies/base_models/44k/D_0.pth`
-4. 扩散底模：
-   - `model_assets/dependencies/base_models/44k/diffusion/model_0.pt`
-5. NSF-HIFIGAN 声码器：
-   - `model_assets/dependencies/vocoders/nsf_hifigan/`
+训练页会检查 ContentVec、RMVPE、So-VITS 主模型底模、扩散底模和 NSF-HiFiGAN。各资产的用途、文件名和目标位置统一维护在 [模型依赖清单](08_模型依赖清单.md)，本指南不重复维护完整路径表。
 
 建议顺序：
 
@@ -165,9 +153,9 @@ model_assets/workspaces/paimeng/
 
 1. 单说话人。
 2. 尽量干声，无伴奏、低噪声、少混响。
-3. 语音不要太长，限制10s内，显卡12g的话最多15s，再长的话容易在训练过程中爆内存。
+3. 单个片段不要过长；先使用较短片段跑通闭环，再根据实际显存逐步调整。
 4. 文件名不要包含奇怪符号。
-5. 语音格式后缀仅支持 .wav .WAV。
+5. 当前训练数据导入主线使用 WAV，扩展名大小写不敏感。
 
 导入后的数据位置
 
