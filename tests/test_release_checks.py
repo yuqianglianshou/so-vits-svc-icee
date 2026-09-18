@@ -2,6 +2,7 @@ from pathlib import Path
 
 from scripts.check_release import (
     REQUIRED_PATHS,
+    check_forbidden_text,
     check_forbidden_tracked_files,
     check_json_files,
     check_markdown_links,
@@ -87,6 +88,25 @@ def test_check_forbidden_tracked_files_rejects_generated_assets():
         "Git 跟踪了发布产物或本地文件: model_assets/workspaces/demo/G_100.pth",
         "Git 跟踪了发布产物或本地文件: inference_data/outputs/demo.wav",
         "Git 跟踪了发布产物或本地文件: src/__pycache__/app.cpython-311.pyc",
+    ]
+
+
+def test_check_forbidden_text_reports_source_file_and_value(tmp_path: Path):
+    """旧支持入口重新进入模板时，检查结果必须定位到具体文件。"""
+    template = tmp_path / ".github" / "ISSUE_TEMPLATE" / "bug.yaml"
+    template.parent.mkdir(parents=True)
+    template.write_text(
+        "url: https://github.com/svc-develop-team/so-vits-svc/discussions\n",
+        encoding="utf-8",
+    )
+
+    assert check_forbidden_text(
+        tmp_path,
+        [template],
+        ["svc-develop-team/so-vits-svc/discussions"],
+    ) == [
+        ".github/ISSUE_TEMPLATE/bug.yaml: 包含已废弃内容: "
+        "svc-develop-team/so-vits-svc/discussions"
     ]
 
 

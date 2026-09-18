@@ -37,6 +37,11 @@ FORBIDDEN_SUFFIXES = (
     ".pyc",
 )
 FORBIDDEN_PARTS = (".venv", ".venv311", "__pycache__")
+FORBIDDEN_TEMPLATE_TEXT = (
+    "svc-develop-team/so-vits-svc/discussions",
+    "svc-develop-team/so-vits-svc/blob",
+    "logs/44k",
+)
 
 
 def find_markdown_links(text: str) -> list[str]:
@@ -119,6 +124,23 @@ def check_forbidden_tracked_files(tracked_files: Sequence[str]) -> list[str]:
     return errors
 
 
+def check_forbidden_text(
+    root: Path,
+    paths: Sequence[Path],
+    forbidden_values: Sequence[str],
+) -> list[str]:
+    """检查面向用户的文件是否重新引入已废弃的说明。"""
+    errors: list[str] = []
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        for value in forbidden_values:
+            if value in text:
+                errors.append(
+                    f"{path.relative_to(root).as_posix()}: 包含已废弃内容: {value}"
+                )
+    return errors
+
+
 def _git_tracked_files(root: Path) -> list[str]:
     """读取 Git 跟踪清单，Git 不可用时把原因交给调用方展示。"""
     result = subprocess.run(
@@ -153,6 +175,16 @@ def run_checks(root: Path, tracked_files: Sequence[str] | None = None) -> list[s
             errors.append(f"无法读取 Git 跟踪文件: {exc}")
             tracked_files = []
     errors.extend(check_forbidden_tracked_files(tracked_files))
+    template_dir = root / ".github" / "ISSUE_TEMPLATE"
+    if template_dir.exists():
+        template_files = sorted(path for path in template_dir.iterdir() if path.is_file())
+        errors.extend(
+            check_forbidden_text(
+                root,
+                template_files,
+                FORBIDDEN_TEMPLATE_TEXT,
+            )
+        )
     return errors
 
 

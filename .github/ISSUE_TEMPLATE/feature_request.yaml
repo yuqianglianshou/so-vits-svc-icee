@@ -1,0 +1,43 @@
+name: 功能建议
+description: 描述希望改善的用户问题和使用流程
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已检查已知限制和现有 Issue，没有找到相同建议。
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 当前遇到的问题
+      description: 描述用户目标和当前流程的困难，不要只写解决方案名称。
+    validations:
+      required: true
+  - type: textarea
+    id: expected_flow
+    attributes:
+      label: 期望的使用流程
+      description: 描述从用户操作到得到结果的完整流程。
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 当前替代方式
+      description: 说明现在如何绕过问题，以及这种方式的不足。
+    validations:
+      required: true
+  - type: checkboxes
+    id: compatibility
+    attributes:
+      label: 可能影响的兼容性
+      options:
+        - label: 训练模型或 checkpoint
+        - label: 模型工作区目录
+        - label: 推理包或导出格式
+        - label: Windows 启动流程
+        - label: 不确定
