@@ -1,189 +1,119 @@
-# SoftVC VITS Singing Voice Conversion
+# So-VITS-SVC Icee
 
-[English](./README_en.md) | [中文简体](./README.md)
+English | [简体中文](./README.md)
 
-[![LICENSE](https://img.shields.io/badge/LICENSE-AGPL3.0-green.svg?style=for-the-badge)](./LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](./LICENSE)
 
-This is a local, offline customized So-VITS-SVC repository. The current goal is to let users train single-speaker models and run high-quality singing voice conversion through visual app pages.
+A local, offline visual workspace for training So-VITS-SVC models and converting singing voices. It is based on so-vits-svc 4.1 and focuses on a clearer single-speaker workflow, dependency preparation, model management, and inference.
 
-## Usage Notice
+> This repository is currently a release candidate. The model core and file formats remain on the so-vits-svc 4.1 compatibility path. Windows with an NVIDIA GPU is the primary supported environment.
 
-This project is intended only for learning, research, and legally authorized use cases.
+## Responsible Use
 
-Users are responsible for verifying the authorization of training data, input audio, model distribution, and generated audio. This repository does not provide any model files and is not responsible for how users train models or use generated audio.
+Use this project only for learning, research, and legally authorized scenarios. You are responsible for the rights to all training data, input audio, models, and generated audio. Do not use it for illegal activity, infringement, impersonation, harassment, fraud, or political or religious manipulation.
 
-Do not use this project for illegal, infringing, impersonation, political or religious manipulation, harassment, fraud, or other harmful purposes. By continuing to use this project, you understand and accept full responsibility for your data and generated content.
+This repository does not provide trained character or real-person models and is not responsible for models or content created by users.
 
-This project is a customized fork based on [so-vits-svc](https://github.com/svc-develop-team/so-vits-svc/). Its theoretical foundation and core principles have not been changed. I would like to express my highest respect to the original team.
+## Differences from Upstream 4.1
 
-## Current Mainline
+| Area | so-vits-svc 4.1 | This project |
+| --- | --- | --- |
+| Training | CLI and legacy WebUI | Workspace-based visual training page |
+| Inference | Files and options are spread across tools | Model import, quality presets, and output management |
+| Dependencies | Mostly placed manually | Status checks, guided downloads, and manual import |
+| Data layout | Shared global directories | An isolated workspace for each model |
+| Primary audience | Users familiar with the repository internals | Local Windows users |
+| Compatibility | so-vits-svc 4.1 | Keeps the 4.1 model compatibility path |
 
-The repository now has two primary entrypoints:
+The project does not claim a new SVC architecture. Its current value is a more understandable workflow, organized storage, dependency management, and safer defaults.
 
-```bash
-python -m src.app_train
-python -m src.app_infer
-```
-
-Current technical route:
-
-- Training mode: single speaker / single model workspace
-- Content encoder: `vec768l12`
-- ContentVec implementation: Transformers / HF ContentVec
-- F0 predictor: `rmvpe`
-- Training feature package: `*.train.pt`
-- Inference target: offline high-quality singing voice conversion
-
-
-## Recommended Environment
-
-Recommended:
-
-- Windows 10/11
-- NVIDIA GPU + CUDA
-- Python 3.11
-- `.venv311` virtual environment at the repository root
-
-Notes:
-
-- Windows + NVIDIA GPU is the primary validation route.
-- Linux + NVIDIA GPU should be workable, but please validate it yourself.
-- macOS is better suited for page checks, inference attempts, or lightweight validation. It is not recommended as the formal training platform.
-
-## Quick Install
-
-```powershell
-git clone <your-repository-url>
-cd so-vits-svc-icee
-py -3.11 -m venv .venv311
-.venv311\Scripts\activate
-python -m pip install --upgrade pip setuptools wheel
-pip install -U torch torchaudio --index-url https://download.pytorch.org/whl/cu118
-pip install -r requirements.txt
-```
-
-Verify CUDA:
-
-```powershell
-python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no cuda')"
-```
-
-If it prints `True` and your GPU name, the GPU environment is basically ready.
-
-## Launch Apps
+## Screenshots
 
 Training page:
 
-```powershell
-python -m src.app_train
-```
+![Training page](./images/训练页.png)
 
 Inference page:
 
+![Inference page](./images/推理页.png)
+
+## Supported Scope
+
+Primary target:
+
+- Windows 10/11 64-bit.
+- NVIDIA GPU with CUDA.
+- Python 3.11.
+- Single-speaker, single-model workspaces.
+- Local offline singing voice conversion.
+- The 44.1 kHz path using ContentVec `vec768l12` and RMVPE.
+
+Linux has not completed the same release validation. macOS is not recommended for production training. Multi-speaker training, real-time conversion, and ONNX are not primary supported workflows in this release.
+
+## Quick Install
+
+Install Git, Python 3.11, FFmpeg, and a compatible NVIDIA driver. From the repository root:
+
 ```powershell
+python -m venv .venv311
+.venv311\Scripts\activate
+python -m pip install --upgrade pip
+```
+
+Install PyTorch and torchaudio for your CUDA environment, then install the repository dependencies:
+
+```powershell
+pip install -r requirements.txt
+```
+
+Use the [official PyTorch selector](https://pytorch.org/get-started/locally/) for the appropriate installation command.
+
+## Launch
+
+Double-click the scripts under `launchers/`, or run:
+
+```powershell
+python -m src.app_train
 python -m src.app_infer
 ```
 
-On Windows, you can also double-click:
+## Shortest Training Path
 
-```text
-launchers/启动训练界面.bat
-launchers/启动推理界面.bat
-```
+1. Launch the training page.
+2. Complete the required dependency and base-model checks.
+3. Create a model workspace.
+4. Import clean and legally authorized WAV files.
+5. Run resampling, configuration generation, and feature extraction.
+6. Start main-model training.
+7. Optionally train shallow diffusion and a feature-retrieval index.
+8. Load the resulting model on the inference page and run a conversion.
 
-The training page handles:
+## Required Assets
 
-- checking training dependencies and base models
-- automatically downloading or importing dependency files
-- creating and switching model workspaces
-- importing training audio
-- running training steps 1-6
-- opening TensorBoard
-- opening the inference page
+The training page checks and guides the installation of ContentVec HF, RMVPE, `G_0.pth`, `D_0.pth`, the optional diffusion base model, and NSF-HiFiGAN. Prefer the guided download flow on the training page.
 
-The inference page handles:
+Detailed user documentation is currently maintained primarily in Simplified Chinese:
 
-- loading models from training workspaces or imported models
-- loading optional diffusion models and timbre-enhancement files
-- switching quality modes
-- converting input audio
-- exporting runtime summaries
-
-## Training Dependencies
-
-The training page checks and guides you to prepare these files:
-
-```text
-model_assets/dependencies/encoders/contentvec_hf/config.json
-model_assets/dependencies/encoders/contentvec_hf/model.safetensors
-model_assets/dependencies/encoders/rmvpe.pt
-model_assets/dependencies/base_models/44k/G_0.pth
-model_assets/dependencies/base_models/44k/D_0.pth
-model_assets/dependencies/base_models/44k/diffusion/model_0.pt
-model_assets/dependencies/vocoders/nsf_hifigan/
-```
-
-ContentVec HF requires both `config.json` and `model.safetensors`. The training page shows exactly which file is missing.
-
-Prefer clicking "auto fetch current dependency" in the training page. If that fails, use the page-provided links to download manually and import the files.
-
-## Directory Layout
-
-```text
-src/                         # source code
-config_templates/            # config templates
-inference_data/inputs/       # inference inputs
-inference_data/outputs/      # inference outputs
-logs/training_tasks/         # training page task logs
-model_assets/dependencies/   # training dependencies and base models
-model_assets/workspaces/     # training workspaces, outputs, and matching training data
-model_assets/imported_models/# imported inference models
-docs/                        # documentation
-```
-
-Recommended mapping: one speaker corresponds to one model workspace.
-
-```text
-model_assets/workspaces/paimeng/
-model_assets/workspaces/paimeng/training_data/source/
-model_assets/workspaces/paimeng/training_data/processed/44k/
-```
-
-## Documentation
-
-Documentation index:
-
-- [Documentation Index](./docs/README.md)
-
-Common documents:
-
-- [Windows Install, Training, and Inference Guide](./docs/01_Windows安装训练推理指南.md)
-- [Windows Troubleshooting](./docs/02_Windows常见问题排查.md)
-- [Core Models and Base Models](./docs/03_核心模型与底模说明.md)
-- [Training Flow and Theory](./docs/04_训练流程与原理说明.md)
-- [Audio Quality Configuration Recommendations](./docs/05_音质配置推荐.md)
-- [Training Terms and Parameter Quick Reference](./docs/06_训练术语与参数速查.md)
+- [Documentation index](./docs/README.md)
+- [Quick start](./docs/00_快速开始.md)
+- [Environment and compatibility](./docs/07_环境与兼容性.md)
+- [Model asset inventory](./docs/08_模型依赖清单.md)
+- [Known limitations](./docs/09_已知限制.md)
 
 ## Development Checks
 
-After changing the training page, inference page, task flow, or stability-related logic, run:
-
 ```bash
-python3 -m py_compile src/app_train.py src/app_infer.py
-python3 scripts/verify_app_smoke.py
-python3 scripts/verify_stability_fixes.py
+pip install -r requirements-dev.txt
+python -m ruff check src scripts tests
+python -m compileall -q src scripts tests
+python scripts/verify_app_smoke.py
+python scripts/verify_stability_fixes.py
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests -q
+python scripts/check_release.py
 ```
 
-## References
+## Acknowledgements and License
 
-| Name | Paper / Project |
-| --- | --- |
-| VITS | [Conditional Variational Autoencoder with Adversarial Learning for End-to-End Text-to-Speech](https://arxiv.org/abs/2106.06103) |
-| ContentVec | [ContentVec: An Improved Self-Supervised Speech Representation by Disentangling Speakers](https://arxiv.org/abs/2204.09224) |
-| RMVPE | [RMVPE: A Robust Model for Vocal Pitch Estimation in Polyphonic Music](https://arxiv.org/abs/2306.15412v2) |
-| HiFi-GAN | [HiFi-GAN: Generative Adversarial Networks for Efficient and High Fidelity Speech Synthesis](https://arxiv.org/abs/2010.05646) |
-| DiffSinger / Shallow Diffusion | [DiffSinger: Singing Voice Synthesis via Shallow Diffusion Mechanism](https://arxiv.org/abs/2105.02446v3) |
+This project is based on [svc-develop-team/so-vits-svc](https://github.com/svc-develop-team/so-vits-svc) 4.1 and relies on work including VITS, ContentVec, RMVPE, HiFi-GAN, and DiffSinger. Thank you to the original project and all related open-source authors.
 
-## License
-
-This project follows the AGPL-3.0 license. See [LICENSE](./LICENSE).
+Licensed under AGPL-3.0. See [LICENSE](./LICENSE).
